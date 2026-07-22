@@ -34,7 +34,7 @@ jobs:
 
           const pkg = JSON.parse(readFileSync("package.json", "utf8"));
           const expectedName = "@dutifuldev/pi-factory";
-          const expectedRepoUrl = "https://github.com/dutifuldev/pi-factory";
+          const expectedRepoUrl = "https://github.com/osolmaz/pi-factory";
 
           const normalizeRepoUrl = (value) =>
             String(value ?? "")
@@ -99,7 +99,7 @@ jobs:
           echo "Publishing @dutifuldev/pi-factory@$package_version"
       - run: npm run check
       - run: npm run mutate
-      - uses: dutifuldev/slophammer@main
+      - uses: osolmaz/slophammer@main
         with:
           checker: ts
           version: 0.4.0

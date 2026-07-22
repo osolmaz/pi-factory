@@ -339,7 +339,7 @@ pi-factory plan localpager
 pi-factory validate ./localpager-app
 pi-factory init localpager
 pi-factory link /path/to/localpager-app
-pi-factory install dutifuldev/localpi/pi-factory
+pi-factory install osolmaz/localpi/pi-factory
 pi-factory uninstall localpager
 pi-factory list
 ```

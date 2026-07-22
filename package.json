@@ -6,12 +6,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dutifuldev/pi-factory.git"
+    "url": "git+https://github.com/osolmaz/pi-factory.git"
   },
   "bugs": {
-    "url": "https://github.com/dutifuldev/pi-factory/issues"
+    "url": "https://github.com/osolmaz/pi-factory/issues"
   },
-  "homepage": "https://github.com/dutifuldev/pi-factory#readme",
+  "homepage": "https://github.com/osolmaz/pi-factory#readme",
   "publishConfig": {
     "access": "public"
   },
