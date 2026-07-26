@@ -1,6 +1,6 @@
 {
-  "name": "@dutifuldev/pi-factory",
-  "version": "0.1.1",
+  "name": "@osolmaz/pi-factory",
+  "version": "0.1.2",
   "description": "Declarative Pi application bundle launcher.",
   "type": "module",
   "license": "MIT",

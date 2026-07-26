@@ -17,7 +17,7 @@ config.
 From npm:
 
 ```bash
-npm install -g @dutifuldev/pi-factory
+npm install -g @osolmaz/pi-factory
 ```
 
 During development:
