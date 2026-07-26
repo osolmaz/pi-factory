@@ -85,22 +85,25 @@ jobs:
             echo "Release tag $tag does not match package version $version." >&2
             exit 1
           fi
-      - name: Ensure version is not already published
+      - name: Check whether the version needs publishing
+        id: release
         run: |
           set -euo pipefail
           package_version="$(node -p "require('./package.json').version")"
           published_version="$(npm view "@osolmaz/pi-factory@$package_version" version 2>/dev/null || true)"
 
           if [ "$published_version" = "$package_version" ]; then
-            echo "@osolmaz/pi-factory@$package_version is already published on npm."
-            exit 1
+            echo "@osolmaz/pi-factory@$package_version is already published; skipping upload."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing @osolmaz/pi-factory@$package_version"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
-
-          echo "Publishing @osolmaz/pi-factory@$package_version"
       - run: npm run check
       - run: npm run mutate
       - uses: osolmaz/slophammer@main
         with:
           checker: ts
           version: 0.4.0
-      - run: npm publish --access public --provenance
+      - if: steps.release.outputs.publish == 'true'
+        run: npm publish --access public --provenance
