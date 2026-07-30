@@ -2,11 +2,13 @@ export type {
   PiAppDefinition,
   PiAppManifest,
   PiExtensionDefinition,
+  PiLaunchOverrides,
   PiLaunchPlan,
   PiModelDefinition,
   PiProviderDefinition,
   PiRuntimeConfig,
-  PiRuntimeConfigPaths
+  PiRuntimeConfigPaths,
+  PiRunMode
 } from "./types.js";
 export {
   createPiLaunchPlan,

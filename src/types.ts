@@ -110,6 +110,16 @@ export type PiRuntimeConfigPaths = {
 
 export type PiRuntimeConfig = PiRuntimeConfigPaths;
 
+export type PiRunMode = "interactive" | "print" | "json" | "rpc";
+
+export type PiLaunchOverrides = {
+  readonly cwd?: string;
+  readonly mode?: PiRunMode;
+  readonly session?: string;
+  readonly name?: string;
+  readonly messages?: readonly string[];
+};
+
 export type PiLaunchPlan = {
   readonly appId: string;
   readonly appName: string;

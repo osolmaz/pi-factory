@@ -1,9 +1,16 @@
 import { spawn } from "node:child_process";
 import type { StdioOptions } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { mkdir, realpath, stat } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { runtimeConfigPathsForApp, writePiRuntimeConfig } from "./runtime-config.js";
-import type { PiAppDefinition, PiLaunchPlan, PiRuntimeConfigPaths } from "./types.js";
+import type {
+  PiAppDefinition,
+  PiLaunchOverrides,
+  PiLaunchPlan,
+  PiRuntimeConfigPaths,
+  PiRunMode
+} from "./types.js";
 
 export function runtimeConfigPaths(app: PiAppDefinition): PiRuntimeConfigPaths {
   return runtimeConfigPathsForApp(app);
@@ -11,10 +18,12 @@ export function runtimeConfigPaths(app: PiAppDefinition): PiRuntimeConfigPaths {
 
 export async function createPiLaunchPlan(
   app: PiAppDefinition,
-  runtimeConfig: PiRuntimeConfigPaths = runtimeConfigPaths(app)
+  runtimeConfig: PiRuntimeConfigPaths = runtimeConfigPaths(app),
+  overrides: PiLaunchOverrides = {}
 ): Promise<PiLaunchPlan> {
   const appEnv = withoutManagedPiEnv(app.env);
   const warnings = managedPiEnvWarnings(app.env);
+  const cwd = await launchCwd(app, overrides.cwd);
   return {
     appId: app.id,
     appName: app.name,
@@ -28,7 +37,8 @@ export async function createPiLaunchPlan(
       app.thinking,
       ...extensionArgs(app),
       ...systemPromptArgs(app),
-      ...withDefaultTools(app.forwardedArgs ?? [], app.tools)
+      ...withDefaultTools(app.forwardedArgs ?? [], app.tools),
+      ...runtimeArgs(overrides)
     ],
     env: {
       ...appEnv,
@@ -38,16 +48,67 @@ export async function createPiLaunchPlan(
       PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",
       PI_SKIP_VERSION_CHECK: process.env["PI_SKIP_VERSION_CHECK"] ?? "1"
     },
-    ...(app.rootDir === undefined ? {} : { cwd: app.rootDir }),
+    ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
     warnings
   };
 }
 
-export async function runPiApp(app: PiAppDefinition): Promise<number> {
+export async function runPiApp(
+  app: PiAppDefinition,
+  overrides: PiLaunchOverrides = {}
+): Promise<number> {
+  const cwd = await launchCwd(app, overrides.cwd);
   const runtimeConfig = await writePiRuntimeConfig(app);
   await mkdir(app.sessionDir, { recursive: true });
-  return await execPiLaunchPlan(await createPiLaunchPlan(app, runtimeConfig));
+  return await execPiLaunchPlan(
+    await createPiLaunchPlan(app, runtimeConfig, {
+      ...overrides,
+      ...(cwd === undefined ? {} : { cwd })
+    })
+  );
+}
+
+async function launchCwd(
+  app: PiAppDefinition,
+  override: string | undefined
+): Promise<string | undefined> {
+  const candidate = override ?? app.rootDir;
+  if (candidate === undefined) return undefined;
+  const absolute = resolve(candidate);
+  const info = await stat(absolute).catch((error: unknown) => {
+    if (isNodeError(error) && error.code === "ENOENT") return undefined;
+    throw error;
+  });
+  if (info === undefined) throw new Error(`launch cwd does not exist: ${absolute}`);
+  if (!info.isDirectory()) throw new Error(`launch cwd must be a directory: ${absolute}`);
+  return await realpath(absolute);
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
+function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
+  const args: string[] = [];
+  args.push(...modeArgs(overrides.mode ?? "interactive"));
+  if (overrides.session !== undefined) args.push("--session", overrides.session);
+  if (overrides.name !== undefined) args.push("--name", overrides.name);
+  args.push(...(overrides.messages ?? []));
+  return args;
+}
+
+function modeArgs(mode: PiRunMode): readonly string[] {
+  switch (mode) {
+    case "interactive":
+      return [];
+    case "print":
+      return ["--print"];
+    case "json":
+      return ["--mode", "json"];
+    case "rpc":
+      return ["--mode", "rpc"];
+  }
 }
 
 export async function execPiLaunchPlan(plan: PiLaunchPlan): Promise<number> {
