@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
 import type { StdioOptions } from "node:child_process";
+import spawn from "cross-spawn";
 import { mkdir, realpath, stat } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
