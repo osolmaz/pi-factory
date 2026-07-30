@@ -59,7 +59,8 @@ append_system_prompt = "prompts/demo.md"
 ```
 
 Paths are relative to the app bundle root unless absolute. `pi_command` is a
-nonempty argv array. Pi Factory does not interpret shell syntax in it. Put
-environment values in `[env]` and use a bundle script when shell behavior is
-needed. Prompt files are loaded by Pi Factory and passed to Pi through Pi's
+nonempty argv array. Pi Factory does not interpret shell syntax in it. Prefix
+bundle-relative command paths with `./`, put environment values in `[env]`, and
+use a bundle script when shell behavior is needed. Prompt files are loaded by
+Pi Factory and passed to Pi through Pi's
 native prompt flags.

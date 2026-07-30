@@ -97,7 +97,7 @@ describe("target working directories", () => {
     await mkdir(scriptsDir);
     await writeFile(nodeScript, "process.exit(0);\n");
     const nodePlan = await createPiLaunchPlan(
-      { ...definition, piCommand: ["node", "scripts/launch-pi.mjs"] },
+      { ...definition, piCommand: ["node", "./scripts/launch-pi.mjs"] },
       undefined,
       { cwd: target }
     );
@@ -105,18 +105,25 @@ describe("target working directories", () => {
     expect(nodePlan.args[0]).toBe(nodeScript);
 
     const missingPlan = await createPiLaunchPlan(
-      { ...definition, piCommand: ["node", "scripts/missing.mjs"] },
+      { ...definition, piCommand: ["node", "./scripts/missing.mjs"] },
       undefined,
       { cwd: target }
     );
     expect(missingPlan.args[0]).toBe(path.join(root, "scripts", "missing.mjs"));
 
     const windowsPathPlan = await createPiLaunchPlan(
-      { ...definition, piCommand: ["node", "scripts\\launch-pi.mjs"] },
+      { ...definition, piCommand: ["node", ".\\scripts\\launch-pi.mjs"] },
       undefined,
       { cwd: target }
     );
     expect(windowsPathPlan.args[0]).toBe(nodeScript);
+
+    const opaqueArgumentPlan = await createPiLaunchPlan(
+      { ...definition, piCommand: ["node", "-e", 'console.log("a/b")'] },
+      undefined,
+      { cwd: target }
+    );
+    expect(opaqueArgumentPlan.args[1]).toBe('console.log("a/b")');
 
     const dynamicPlan = await createPiLaunchPlan(
       { ...definition, piCommand: ["./$PI_WRAPPER"] },

@@ -76,7 +76,7 @@ path = "extensions/demo.ts"
 append_system_prompt = "prompts/demo.md"
 ```
 
-Paths are relative to the app bundle root unless absolute. `pi_command` is an argv array, not a shell string. Put environment values in `[env]` and use a script file when shell behavior is needed.
+Paths are relative to the app bundle root unless absolute. `pi_command` is an argv array, not a shell string. Prefix bundle-relative command paths with `./`, put environment values in `[env]`, and use a script file when shell behavior is needed.
 
 ## Run
 
