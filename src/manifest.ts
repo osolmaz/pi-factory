@@ -116,7 +116,7 @@ function readTopLevelFields(
 
   const description = optionalString(value, "description", errors);
   const sessionDir = optionalString(value, "session_dir", errors);
-  const piCommand = optionalString(value, "pi_command", errors);
+  const piCommand = piCommandField(value, errors);
   const tools = stringArrayField(value, "tools", false, errors);
   const systemPrompt = optionalString(value, "system_prompt", errors);
   const env = recordStringField(value, "env", false, errors);
@@ -222,7 +222,7 @@ export async function manifestToDefinition(
     rootDir: appRoot,
     stateDir: expandPath(manifest.state_dir, appRoot),
     sessionDir: expandPath(manifest.session_dir ?? `${manifest.state_dir}/sessions`, appRoot),
-    piCommand: manifest.pi_command ?? "npx -y @earendil-works/pi-coding-agent@latest",
+    piCommand: manifest.pi_command ?? ["npx", "-y", "@earendil-works/pi-coding-agent@latest"],
     providers: [providerDefinition(manifest)],
     defaultProvider: manifest.provider.id,
     defaultModel: manifest.model.id,
@@ -443,6 +443,17 @@ function optionalBoolean(
   }
   errors.push(`${key} must be a boolean`);
   return undefined;
+}
+
+function piCommandField(
+  value: Record<string, unknown>,
+  errors: string[]
+): readonly string[] | undefined {
+  const command = stringArrayField(value, "pi_command", false, errors);
+  if (command !== undefined && (command.length === 0 || command.some((part) => part === ""))) {
+    errors.push("pi_command must be a nonempty array of nonempty strings");
+  }
+  return command;
 }
 
 function stringArrayField(

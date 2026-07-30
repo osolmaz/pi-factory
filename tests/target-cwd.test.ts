@@ -27,7 +27,7 @@ function app(rootDir: string, stateDir: string): PiAppDefinition {
     rootDir,
     stateDir,
     sessionDir: path.join(stateDir, "sessions"),
-    piCommand: "sh -c 'exit 0' --",
+    piCommand: ["true"],
     providers: [
       {
         id: "local-openai",
@@ -83,12 +83,12 @@ describe("target working directories", () => {
 
     const definition = {
       ...app(root, stateDir),
-      piCommand: `sh -c './bin/pi "$@"' --`,
+      piCommand: ["sh", "./bin/pi"],
       env: { PI_FACTORY_TEST_OUTPUT: output }
     };
     const plan = await createPiLaunchPlan(definition, undefined, { cwd: target });
-    expect(plan.command).toContain(executable);
-    expect(plan.command).toContain('"$@"');
+    expect(plan.command).toBe("sh");
+    expect(plan.args[0]).toBe(executable);
     await expect(runPiApp(definition, { cwd: target })).resolves.toBe(0);
     expect(await readFile(output, "utf8")).toBe(`${target}\n`);
 
@@ -97,14 +97,15 @@ describe("target working directories", () => {
     await mkdir(scriptsDir);
     await writeFile(nodeScript, "process.exit(0);\n");
     const nodePlan = await createPiLaunchPlan(
-      { ...definition, piCommand: "node scripts/launch-pi.mjs" },
+      { ...definition, piCommand: ["node", "scripts/launch-pi.mjs"] },
       undefined,
       { cwd: target }
     );
-    expect(nodePlan.command).toBe(`node '${nodeScript}'`);
+    expect(nodePlan.command).toBe("node");
+    expect(nodePlan.args[0]).toBe(nodeScript);
 
     const dynamicPlan = await createPiLaunchPlan(
-      { ...definition, piCommand: "./$PI_WRAPPER" },
+      { ...definition, piCommand: ["./$PI_WRAPPER"] },
       undefined,
       { cwd: target }
     );
@@ -155,7 +156,7 @@ name = "Regrafter"
 version = "0.1.0"
 schema_version = 1
 state_dir = "./state"
-pi_command = "sh -c 'exit 0' --"
+pi_command = ["true"]
 thinking = "medium"
 tools = ["read", "bash"]
 

@@ -33,7 +33,7 @@ name = "Demo Agent"
 version = "0.1.0"
 schema_version = 1
 state_dir = "~/.local/state/demo-agent"
-pi_command = "npx -y @earendil-works/pi-coding-agent@latest"
+pi_command = ["npx", "-y", "@earendil-works/pi-coding-agent@latest"]
 thinking = "medium"
 tools = ["read", "bash"]
 system_prompt = "prompts/system.md"
@@ -58,5 +58,8 @@ path = "extensions/demo.ts"
 append_system_prompt = "prompts/demo.md"
 ```
 
-Paths are relative to the app bundle root unless absolute. Prompt files are
-loaded by Pi Factory and passed to Pi through Pi's native prompt flags.
+Paths are relative to the app bundle root unless absolute. `pi_command` is a
+nonempty argv array. Pi Factory does not interpret shell syntax in it. Put
+environment values in `[env]` and use a bundle script when shell behavior is
+needed. Prompt files are loaded by Pi Factory and passed to Pi through Pi's
+native prompt flags.

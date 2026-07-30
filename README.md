@@ -51,7 +51,7 @@ name = "My App"
 version = "0.1.0"
 schema_version = 1
 state_dir = "~/.local/state/my-app"
-pi_command = "npx -y @earendil-works/pi-coding-agent@latest"
+pi_command = ["npx", "-y", "@earendil-works/pi-coding-agent@latest"]
 thinking = "medium"
 tools = ["read", "bash"]
 system_prompt = "prompts/system.md"
@@ -76,7 +76,7 @@ path = "extensions/demo.ts"
 append_system_prompt = "prompts/demo.md"
 ```
 
-Paths are relative to the app bundle root unless absolute.
+Paths are relative to the app bundle root unless absolute. `pi_command` is an argv array, not a shell string. Put environment values in `[env]` and use a script file when shell behavior is needed.
 
 ## Run
 

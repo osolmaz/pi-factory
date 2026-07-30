@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import type { StdioOptions } from "node:child_process";
 import { mkdir, realpath, stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 
 import { runtimeConfigPathsForApp, writePiRuntimeConfig } from "./runtime-config.js";
 import type {
@@ -24,11 +24,13 @@ export async function createPiLaunchPlan(
   const appEnv = withoutManagedPiEnv(app.env);
   const warnings = managedPiEnvWarnings(app.env);
   const cwd = await launchCwd(app, overrides.cwd);
+  const command = await resolveLaunchCommand(app);
   return {
     appId: app.id,
     appName: app.name,
-    command: await launchCommand(app, cwd),
+    command: command.program,
     args: [
+      ...command.args,
       "--provider",
       app.defaultProvider,
       "--model",
@@ -90,6 +92,47 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
 }
 
+async function resolveLaunchCommand(
+  app: PiAppDefinition
+): Promise<{ program: string; args: readonly string[] }> {
+  const [program, ...args] = app.piCommand;
+  if (program === undefined || program === "") {
+    throw new Error("launch command must not be empty");
+  }
+  if (app.rootDir === undefined) return { program, args };
+  const root = await realpath(resolve(app.rootDir));
+  return {
+    program: await resolveCommandPart(program, root),
+    args: await Promise.all(args.map((arg) => resolveCommandPart(arg, root)))
+  };
+}
+
+async function resolveCommandPart(value: string, appRoot: string): Promise<string> {
+  const reference = bundlePathReference(value);
+  if (reference === undefined) return value;
+  const absolute = resolve(appRoot, reference.path);
+  if (!(await pathExists(absolute))) return value;
+  return `${reference.prefix}${absolute}`;
+}
+
+function bundlePathReference(value: string): { prefix: string; path: string } | undefined {
+  const equals = value.indexOf("=");
+  const prefix = equals === -1 ? "" : value.slice(0, equals + 1);
+  const path = equals === -1 ? value : value.slice(equals + 1);
+  if (!path.includes("/") || isAbsolute(path)) return undefined;
+  return { prefix, path };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
 function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
   const mode = overrides.mode ?? "interactive";
   validateRuntimeMessages(overrides);
@@ -111,109 +154,6 @@ function validateRuntimeMessages(overrides: PiLaunchOverrides): void {
   }
 }
 
-async function launchCommand(app: PiAppDefinition, cwd: string | undefined): Promise<string> {
-  if (app.rootDir === undefined) return app.piCommand;
-  if (cwd === undefined) return app.piCommand;
-  const appRoot = await realpath(resolve(app.rootDir));
-  if (appRoot === cwd) return app.piCommand;
-
-  const replacements = await commandReplacements(app.piCommand, appRoot);
-  if (replacements.length === 0) return app.piCommand;
-  return applyCommandReplacements(app.piCommand, replacements);
-}
-
-interface CommandReplacement {
-  readonly start: number;
-  readonly end: number;
-  readonly value: string;
-}
-
-async function commandReplacements(
-  command: string,
-  appRoot: string
-): Promise<CommandReplacement[]> {
-  const replacements: CommandReplacement[] = [];
-  for (const word of commandWords(command)) {
-    const replacement = await commandReplacement(word, appRoot);
-    if (replacement !== undefined) replacements.push(replacement);
-  }
-  return replacements;
-}
-
-async function commandReplacement(
-  word: CommandWord,
-  appRoot: string
-): Promise<CommandReplacement | undefined> {
-  const resolved = await resolveCommandWord(word.value, appRoot);
-  if (resolved === undefined) return undefined;
-  return {
-    start: word.start,
-    end: word.end,
-    value: shellQuote(resolved)
-  };
-}
-
-async function resolveCommandWord(value: string, appRoot: string): Promise<string | undefined> {
-  const direct = await resolveBundleReference(value, appRoot);
-  if (direct !== undefined) return direct;
-
-  const replacements: CommandReplacement[] = [];
-  for (const word of commandWords(value)) {
-    const resolved = await resolveBundleReference(word.value, appRoot);
-    if (resolved !== undefined) {
-      replacements.push({ start: word.start, end: word.end, value: shellQuote(resolved) });
-    }
-  }
-  if (replacements.length === 0) return undefined;
-  return applyCommandReplacements(value, replacements);
-}
-
-async function resolveBundleReference(value: string, appRoot: string): Promise<string | undefined> {
-  const reference = bundlePathReference(value);
-  if (reference === undefined) return undefined;
-  const absolute = resolve(appRoot, reference.path);
-  if (!(await pathExists(absolute))) return undefined;
-  return `${reference.prefix}${absolute}`;
-}
-
-function applyCommandReplacements(
-  command: string,
-  replacements: readonly CommandReplacement[]
-): string {
-  let result = "";
-  let cursor = 0;
-  for (const replacement of replacements) {
-    result += command.slice(cursor, replacement.start);
-    result += replacement.value;
-    cursor = replacement.end;
-  }
-  return `${result}${command.slice(cursor)}`;
-}
-
-function bundlePathReference(value: string): { prefix: string; path: string } | undefined {
-  const equals = value.indexOf("=");
-  const prefix = equals === -1 ? "" : value.slice(0, equals + 1);
-  const path = equals === -1 ? value : value.slice(equals + 1);
-  if (!path.includes("/") || path.startsWith("/") || hasDynamicPathSyntax(path)) {
-    return undefined;
-  }
-  return { prefix, path };
-}
-
-function hasDynamicPathSyntax(path: string): boolean {
-  return ["$", "*", "?", "[", "]", "{", "}", "~", "`"].some((char) => path.includes(char));
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") return false;
-    throw error;
-  }
-}
-
 function modeArgs(mode: PiRunMode): readonly string[] {
   switch (mode) {
     case "interactive":
@@ -229,9 +169,9 @@ function modeArgs(mode: PiRunMode): readonly string[] {
 
 export async function execPiLaunchPlan(plan: PiLaunchPlan): Promise<number> {
   const stdio: StdioOptions = "inherit";
-  assertLaunchCommand(plan.command);
-  const child = spawn(shellCommand(plan.command, plan.args), {
-    shell: true,
+  if (plan.command === "") throw new Error("launch command must not be empty");
+  const child = spawn(plan.command, plan.args, {
+    shell: false,
     stdio,
     cwd: plan.cwd,
     env: { ...process.env, ...plan.env }
@@ -317,100 +257,4 @@ function managedPiEnvWarnings(
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function assertLaunchCommand(command: string): void {
-  const [program] = commandWords(command);
-  if (program === undefined || program.value === "") {
-    throw new Error("launch command must not be empty");
-  }
-}
-
-interface CommandWord {
-  readonly start: number;
-  readonly end: number;
-  readonly value: string;
-}
-
-interface CommandScanState {
-  readonly start?: number;
-  readonly value: string;
-  readonly quote?: "'" | '"';
-  readonly escaping: boolean;
-}
-
-function commandWords(command: string): CommandWord[] {
-  const words: CommandWord[] = [];
-  let state: CommandScanState = { value: "", escaping: false };
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index];
-    if (char !== undefined) state = consumeCommandCharacter(words, state, char, index);
-  }
-  finishCommandWords(words, state, command);
-  return words;
-}
-
-function consumeCommandCharacter(
-  words: CommandWord[],
-  state: CommandScanState,
-  char: string,
-  index: number
-): CommandScanState {
-  if (state.start === undefined && isWhitespace(char)) return state;
-  const started: CommandScanState & { readonly start: number } = {
-    ...state,
-    start: state.start ?? index
-  };
-  return consumeStartedCommandCharacter(words, started, char, index);
-}
-
-function consumeStartedCommandCharacter(
-  words: CommandWord[],
-  state: CommandScanState & { readonly start: number },
-  char: string,
-  index: number
-): CommandScanState {
-  if (state.escaping) return { ...state, value: state.value + char, escaping: false };
-  if (char === "\\" && state.quote !== "'") return { ...state, escaping: true };
-  if (state.quote !== undefined) {
-    return consumeQuotedCommandCharacter({ ...state, quote: state.quote }, char);
-  }
-  if (isQuote(char)) return { ...state, quote: char };
-  if (!isWhitespace(char)) return { ...state, value: state.value + char };
-  words.push({ start: state.start, end: index, value: state.value });
-  return { value: "", escaping: false };
-}
-
-function consumeQuotedCommandCharacter(
-  state: CommandScanState & { readonly start: number; readonly quote: "'" | '"' },
-  char: string
-): CommandScanState {
-  if (char === state.quote) {
-    return {
-      start: state.start,
-      value: state.value,
-      escaping: state.escaping
-    };
-  }
-  return { ...state, value: state.value + char };
-}
-
-function finishCommandWords(words: CommandWord[], state: CommandScanState, command: string): void {
-  if (state.quote !== undefined) {
-    throw new Error(`unterminated quote in launch command: ${command}`);
-  }
-  if (state.start === undefined) return;
-  words.push({
-    start: state.start,
-    end: command.length,
-    value: state.escaping ? `${state.value}\\` : state.value
-  });
-}
-
-function isQuote(char: string): char is "'" | '"' {
-  return char === "'" || char === '"';
-}
-
-function isWhitespace(char: string): boolean {
-  return /\s/u.test(char);
 }

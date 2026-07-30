@@ -134,7 +134,7 @@ platforms = ["linux", "macos", "windows"]
 
 state_dir = "~/.local/state/localpager"
 session_dir = "~/.local/state/localpager/sessions"
-pi_command = "npx -y @earendil-works/pi-coding-agent@latest"
+pi_command = ["npx", "-y", "@earendil-works/pi-coding-agent@latest"]
 thinking = "medium"
 tools = ["bash", "final_json"]
 system_prompt = "prompts/system.md"
