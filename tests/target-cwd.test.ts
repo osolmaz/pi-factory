@@ -104,6 +104,20 @@ describe("target working directories", () => {
     expect(nodePlan.command).toBe("node");
     expect(nodePlan.args[0]).toBe(nodeScript);
 
+    const missingPlan = await createPiLaunchPlan(
+      { ...definition, piCommand: ["node", "scripts/missing.mjs"] },
+      undefined,
+      { cwd: target }
+    );
+    expect(missingPlan.args[0]).toBe(path.join(root, "scripts", "missing.mjs"));
+
+    const windowsPathPlan = await createPiLaunchPlan(
+      { ...definition, piCommand: ["node", "scripts\\launch-pi.mjs"] },
+      undefined,
+      { cwd: target }
+    );
+    expect(windowsPathPlan.args[0]).toBe(nodeScript);
+
     const dynamicPlan = await createPiLaunchPlan(
       { ...definition, piCommand: ["./$PI_WRAPPER"] },
       undefined,

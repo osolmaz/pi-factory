@@ -1,7 +1,7 @@
 import type { StdioOptions } from "node:child_process";
 import spawn from "cross-spawn";
 import { mkdir, realpath, stat } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, resolve, sep } from "node:path";
 
 import { runtimeConfigPathsForApp, writePiRuntimeConfig } from "./runtime-config.js";
 import type {
@@ -110,27 +110,22 @@ async function resolveLaunchCommand(
 async function resolveCommandPart(value: string, appRoot: string): Promise<string> {
   const reference = bundlePathReference(value);
   if (reference === undefined) return value;
-  const absolute = resolve(appRoot, reference.path);
-  if (!(await pathExists(absolute))) return value;
-  return `${reference.prefix}${absolute}`;
+  const nativePath = reference.path.replaceAll("\\", sep);
+  return `${reference.prefix}${resolve(appRoot, nativePath)}`;
 }
 
 function bundlePathReference(value: string): { prefix: string; path: string } | undefined {
   const equals = value.indexOf("=");
   const prefix = equals === -1 ? "" : value.slice(0, equals + 1);
   const path = equals === -1 ? value : value.slice(equals + 1);
-  if (!path.includes("/") || isAbsolute(path)) return undefined;
+  const staticPath =
+    /[\\/]/u.test(path) &&
+    !isAbsolute(path) &&
+    !path.startsWith("@") &&
+    !/^[A-Za-z][A-Za-z+.-]*:/u.test(path) &&
+    !["$", "*", "?", "[", "]", "{", "}", "~", "`"].some((char) => path.includes(char));
+  if (!staticPath) return undefined;
   return { prefix, path };
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") return false;
-    throw error;
-  }
 }
 
 function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
