@@ -48,7 +48,8 @@ export async function run(args: readonly string[]): Promise<CliResult> {
 }
 
 async function plan(args: readonly string[]): Promise<unknown> {
-  const loaded = await loadPiApp(parseAppArgs(args));
+  const parsed = parseAppArgs(args);
+  const loaded = await loadPiApp(appInput(parsed));
   const app = await manifestToDefinition(loaded.manifest, loaded.appRoot);
   return {
     manifestPath: loaded.manifestPath,
@@ -59,7 +60,11 @@ async function plan(args: readonly string[]): Promise<unknown> {
       version: app.version
     },
     runtimeConfig: runtimeConfigPathsForApp(app),
-    launch: await createPiLaunchPlan(app),
+    launch: await createPiLaunchPlan(
+      app,
+      runtimeConfigPathsForApp(app),
+      parsed.cwd === undefined ? {} : { cwd: parsed.cwd }
+    ),
     note: "plan does not write runtime config or launch Pi"
   };
 }
@@ -69,9 +74,10 @@ function isHelpCommand(command: string | undefined): boolean {
 }
 
 async function runApp(args: readonly string[]): Promise<number> {
-  const loaded = await loadPiApp(parseAppArgs(args));
+  const parsed = parseAppArgs(args);
+  const loaded = await loadPiApp(appInput(parsed));
   const app = await manifestToDefinition(loaded.manifest, loaded.appRoot);
-  return await runPiApp(app);
+  return await runPiApp(app, parsed.cwd === undefined ? {} : { cwd: parsed.cwd });
 }
 
 async function validate(args: readonly string[]): Promise<string> {
@@ -119,7 +125,7 @@ async function uninstall(args: readonly string[]): Promise<boolean> {
 }
 
 async function inspect(args: readonly string[]): Promise<unknown> {
-  const loaded = await loadPiApp(parseAppArgs(args));
+  const loaded = await loadPiApp(appInput(parseAppArgs(args)));
   return {
     manifestPath: loaded.manifestPath,
     appRoot: loaded.appRoot,
@@ -127,12 +133,15 @@ async function inspect(args: readonly string[]): Promise<unknown> {
   };
 }
 
-function parseAppArgs(args: readonly string[]): {
+interface ParsedAppArgs {
   app?: string;
   appFile?: string;
   appDir?: string;
-} {
-  const parsed: { app?: string; appFile?: string; appDir?: string } = {};
+  cwd?: string;
+}
+
+function parseAppArgs(args: readonly string[]): ParsedAppArgs {
+  const parsed: ParsedAppArgs = {};
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === undefined) {
@@ -147,14 +156,20 @@ function parseAppArgs(args: readonly string[]): {
     }
     parsed.app = arg;
   }
-  if (parsed.appFile !== undefined || parsed.appDir !== undefined) {
-    return parsed;
+  if (parsed.appFile === undefined && parsed.appDir === undefined) {
+    parsed.app = required(parsed.app, "usage: pi-factory <plan|run|inspect> <app-id>");
   }
+  return parsed;
+}
+
+function appInput(parsed: ParsedAppArgs): { app?: string; appFile?: string; appDir?: string } {
+  if (parsed.appFile !== undefined) return { appFile: parsed.appFile };
+  if (parsed.appDir !== undefined) return { appDir: parsed.appDir };
   return { app: required(parsed.app, "usage: pi-factory <plan|run|inspect> <app-id>") };
 }
 
 function setPathOption(
-  parsed: { appFile?: string; appDir?: string },
+  parsed: ParsedAppArgs,
   arg: string | undefined,
   next: string | undefined
 ): boolean {
@@ -164,6 +179,10 @@ function setPathOption(
   }
   if (arg === "--app-dir") {
     parsed.appDir = required(next, "--app-dir requires a value");
+    return true;
+  }
+  if (arg === "--cwd") {
+    parsed.cwd = required(next, "--cwd requires a value");
     return true;
   }
   return false;
@@ -203,8 +222,8 @@ function usage(): string {
     "pi-factory - run declarative Pi app bundles",
     "",
     "usage:",
-    "  pi-factory plan <app-id>|--app-dir <dir>|--app-file <file>",
-    "  pi-factory run <app-id>|--app-dir <dir>|--app-file <file>",
+    "  pi-factory plan <app-id>|--app-dir <dir>|--app-file <file> [--cwd <dir>]",
+    "  pi-factory run <app-id>|--app-dir <dir>|--app-file <file> [--cwd <dir>]",
     "  pi-factory validate <app-id|app-dir|app-file>",
     "  pi-factory init <app-id> [dir]",
     "  pi-factory link <app-dir>",

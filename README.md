@@ -98,9 +98,17 @@ Launch Pi through the app bundle:
 pi-factory run --app-dir ./my-app
 ```
 
+Repository-focused apps can keep their bundle files separate from the working
+directory used by Pi:
+
+```bash
+pi-factory run my-app --cwd /path/to/repository
+```
+
 The launch writes Pi-compatible runtime config under the app state directory,
 then starts the configured Pi command with environment variables such as
-`PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`.
+`PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`. Bundle resources still
+resolve from the app root when `--cwd` selects another directory.
 
 ## Link and Install Apps
 
@@ -144,11 +152,13 @@ import {
   manifestToDefinition,
   runPiApp,
   writePiRuntimeConfig
-} from "pi-factory";
+} from "@osolmaz/pi-factory";
 ```
 
 Use the API when another launcher wants Pi Factory's app resolution and config
 generation but owns its own model discovery or local runtime setup.
+`createPiLaunchPlan` and `runPiApp` accept launch overrides for a target `cwd`,
+Pi run mode, session, name, and initial messages.
 
 ## More
 
