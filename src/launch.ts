@@ -27,7 +27,7 @@ export async function createPiLaunchPlan(
   return {
     appId: app.id,
     appName: app.name,
-    command: launchCommand(app),
+    command: await launchCommand(app, cwd),
     args: [
       "--provider",
       app.defaultProvider,
@@ -111,21 +111,86 @@ function validateRuntimeMessages(overrides: PiLaunchOverrides): void {
   }
 }
 
-function launchCommand(app: PiAppDefinition): string {
+async function launchCommand(app: PiAppDefinition, cwd: string | undefined): Promise<string> {
   if (app.rootDir === undefined) return app.piCommand;
-  const relativePath = /(^|\s)(\.{1,2}\/[^\s;&|()<>]+)/gu;
-  let command = "";
-  let cursor = 0;
-  for (const match of app.piCommand.matchAll(relativePath)) {
-    const index = match.index;
-    const prefix = match[1] ?? "";
-    const path = match[2];
-    if (path === undefined) continue;
-    command += app.piCommand.slice(cursor, index);
-    command += `${prefix}${shellQuote(resolve(app.rootDir, path))}`;
-    cursor = index + match[0].length;
+  if (cwd === undefined) return app.piCommand;
+  const appRoot = await realpath(resolve(app.rootDir));
+  if (appRoot === cwd) return app.piCommand;
+
+  const replacements = await commandReplacements(app.piCommand, appRoot);
+  if (replacements.length === 0) return app.piCommand;
+  return applyCommandReplacements(app.piCommand, replacements);
+}
+
+interface CommandReplacement {
+  readonly start: number;
+  readonly end: number;
+  readonly value: string;
+}
+
+async function commandReplacements(
+  command: string,
+  appRoot: string
+): Promise<CommandReplacement[]> {
+  const replacements: CommandReplacement[] = [];
+  for (const word of commandWords(command)) {
+    const replacement = await commandReplacement(word, appRoot);
+    if (replacement !== undefined) replacements.push(replacement);
   }
-  return `${command}${app.piCommand.slice(cursor)}`;
+  return replacements;
+}
+
+async function commandReplacement(
+  word: CommandWord,
+  appRoot: string
+): Promise<CommandReplacement | undefined> {
+  const reference = bundlePathReference(word.value);
+  if (reference === undefined) return undefined;
+  const absolute = resolve(appRoot, reference.path);
+  if (!(await pathExists(absolute))) return undefined;
+  return {
+    start: word.start,
+    end: word.end,
+    value: shellQuote(`${reference.prefix}${absolute}`)
+  };
+}
+
+function applyCommandReplacements(
+  command: string,
+  replacements: readonly CommandReplacement[]
+): string {
+  let result = "";
+  let cursor = 0;
+  for (const replacement of replacements) {
+    result += command.slice(cursor, replacement.start);
+    result += replacement.value;
+    cursor = replacement.end;
+  }
+  return `${result}${command.slice(cursor)}`;
+}
+
+function bundlePathReference(value: string): { prefix: string; path: string } | undefined {
+  const equals = value.indexOf("=");
+  const prefix = equals === -1 ? "" : value.slice(0, equals + 1);
+  const path = equals === -1 ? value : value.slice(equals + 1);
+  if (!path.includes("/") || path.startsWith("/") || hasDynamicPathSyntax(path)) {
+    return undefined;
+  }
+  return { prefix, path };
+}
+
+function hasDynamicPathSyntax(path: string): boolean {
+  return ["$", "*", "?", "[", "]", "{", "}", "~", "`"].some((char) => path.includes(char));
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 function modeArgs(mode: PiRunMode): readonly string[] {
@@ -234,57 +299,91 @@ function shellQuote(value: string): string {
 }
 
 function assertLaunchCommand(command: string): void {
-  const [program] = splitCommandLine(command);
+  const [program] = commandWords(command);
   if (program === undefined) {
     throw new Error("launch command must not be empty");
   }
 }
 
-function splitCommandLine(command: string): string[] {
-  const parts: string[] = [];
-  let state: SplitState = { current: "", quote: undefined, escaping: false };
-  for (const char of command) {
-    state = consumeCommandChar(parts, state, char);
-  }
-  finishSplitCommand(parts, state, command);
-  return parts;
+interface CommandWord {
+  readonly start: number;
+  readonly end: number;
+  readonly value: string;
 }
 
-interface SplitState {
-  readonly current: string;
-  readonly quote: "'" | '"' | undefined;
+interface CommandScanState {
+  readonly start?: number;
+  readonly value: string;
+  readonly quote?: "'" | '"';
   readonly escaping: boolean;
 }
 
-function consumeCommandChar(parts: string[], state: SplitState, char: string): SplitState {
-  if (state.escaping) {
-    return { ...state, current: state.current + char, escaping: false };
+function commandWords(command: string): CommandWord[] {
+  const words: CommandWord[] = [];
+  let state: CommandScanState = { value: "", escaping: false };
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index];
+    if (char !== undefined) state = consumeCommandCharacter(words, state, char, index);
   }
-  if (startsEscape(char)) {
-    return { ...state, escaping: true };
-  }
-  if (state.quote !== undefined) {
-    return consumeQuotedChar(state, char);
-  }
-  if (isQuote(char)) {
-    return { ...state, quote: char };
-  }
-  if (isWhitespace(char)) {
-    return { ...state, current: flushPart(parts, state.current) };
-  }
-  return { ...state, current: state.current + char };
+  finishCommandWords(words, state, command);
+  return words;
 }
 
-function finishSplitCommand(parts: string[], state: SplitState, command: string): void {
-  const current = state.escaping ? `${state.current}\\` : state.current;
+function consumeCommandCharacter(
+  words: CommandWord[],
+  state: CommandScanState,
+  char: string,
+  index: number
+): CommandScanState {
+  if (state.start === undefined && isWhitespace(char)) return state;
+  const started: CommandScanState & { readonly start: number } = {
+    ...state,
+    start: state.start ?? index
+  };
+  return consumeStartedCommandCharacter(words, started, char, index);
+}
+
+function consumeStartedCommandCharacter(
+  words: CommandWord[],
+  state: CommandScanState & { readonly start: number },
+  char: string,
+  index: number
+): CommandScanState {
+  if (state.escaping) return { ...state, value: state.value + char, escaping: false };
+  if (char === "\\" && state.quote !== "'") return { ...state, escaping: true };
+  if (state.quote !== undefined) {
+    return consumeQuotedCommandCharacter({ ...state, quote: state.quote }, char);
+  }
+  if (isQuote(char)) return { ...state, quote: char };
+  if (!isWhitespace(char)) return { ...state, value: state.value + char };
+  words.push({ start: state.start, end: index, value: state.value });
+  return { value: "", escaping: false };
+}
+
+function consumeQuotedCommandCharacter(
+  state: CommandScanState & { readonly start: number; readonly quote: "'" | '"' },
+  char: string
+): CommandScanState {
+  if (char === state.quote) {
+    return {
+      start: state.start,
+      value: state.value,
+      escaping: state.escaping
+    };
+  }
+  return { ...state, value: state.value + char };
+}
+
+function finishCommandWords(words: CommandWord[], state: CommandScanState, command: string): void {
   if (state.quote !== undefined) {
     throw new Error(`unterminated quote in launch command: ${command}`);
   }
-  flushPart(parts, current);
-}
-
-function startsEscape(char: string): boolean {
-  return char === "\\";
+  if (state.start === undefined) return;
+  words.push({
+    start: state.start,
+    end: command.length,
+    value: state.escaping ? `${state.value}\\` : state.value
+  });
 }
 
 function isQuote(char: string): char is "'" | '"' {
@@ -293,18 +392,4 @@ function isQuote(char: string): char is "'" | '"' {
 
 function isWhitespace(char: string): boolean {
   return /\s/u.test(char);
-}
-
-function consumeQuotedChar(state: SplitState, char: string): SplitState {
-  if (char === state.quote) {
-    return { ...state, quote: undefined };
-  }
-  return { ...state, current: state.current + char };
-}
-
-function flushPart(parts: string[], current: string): string {
-  if (current !== "") {
-    parts.push(current);
-  }
-  return "";
 }
