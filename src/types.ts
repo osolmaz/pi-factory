@@ -54,7 +54,7 @@ export type PiAppDefinition = {
   readonly rootDir?: string;
   readonly stateDir: string;
   readonly sessionDir: string;
-  readonly piCommand: string;
+  readonly piCommand: readonly string[];
   readonly providers: readonly PiProviderDefinition[];
   readonly defaultProvider: string;
   readonly defaultModel: string;
@@ -77,7 +77,7 @@ export type PiAppManifest = {
   readonly platforms?: readonly PiPlatform[];
   readonly state_dir: string;
   readonly session_dir?: string;
-  readonly pi_command?: string;
+  readonly pi_command?: readonly string[];
   readonly thinking?: PiThinkingLevel;
   readonly tools?: readonly string[];
   readonly system_prompt?: string;

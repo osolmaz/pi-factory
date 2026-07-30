@@ -33,7 +33,7 @@ describe("pi-factory", () => {
       const loaded = await loadPiApp({ appDir: root });
       const app = await manifestToDefinition(loaded.manifest, loaded.appRoot);
       const plan = await createPiLaunchPlan(app);
-      expect(plan.command).toBe("sh -c 'exit 0' --");
+      expect(plan.command).toBe("true");
       expect(plan.args).toContain("--provider");
       expect(plan.args).toContain("local-openai");
       expect(plan.args).toContain("--extension");
@@ -52,7 +52,7 @@ describe("pi-factory", () => {
       name: "Demo Agent",
       stateDir: "/tmp/pi-factory-state",
       sessionDir: "/tmp/pi-factory-sessions",
-      piCommand: "sh",
+      piCommand: ["sh"],
       providers: [
         { id: "local-openai", baseUrl: "http://127.0.0.1:1234/v1", models: [{ id: "auto" }] }
       ],
@@ -77,7 +77,7 @@ describe("pi-factory", () => {
       name: "Minimal Agent",
       stateDir: "/tmp/pi-factory-state",
       sessionDir: "/tmp/pi-factory-sessions",
-      piCommand: "sh -c 'exit 0' --",
+      piCommand: ["true"],
       providers: [
         { id: "local-openai", baseUrl: "http://127.0.0.1:1234/v1", models: [{ id: "auto" }] }
       ],
@@ -91,27 +91,22 @@ describe("pi-factory", () => {
     await expect(execPiLaunchPlan({ ...plan, command: "" })).rejects.toThrow(
       "launch command must not be empty"
     );
-    await expect(execPiLaunchPlan({ ...plan, command: "''" })).rejects.toThrow(
-      "launch command must not be empty"
-    );
-    await expect(execPiLaunchPlan({ ...plan, command: "sh 'unterminated" })).rejects.toThrow(
-      "unterminated quote"
-    );
   });
 
-  it("preserves shell-style launch command semantics", async () => {
+  it("preserves launch argv and environment values", async () => {
     const plan = await createPiLaunchPlan({
       id: "minimal-agent",
       name: "Minimal Agent",
       stateDir: "/tmp/pi-factory-state",
       sessionDir: "/tmp/pi-factory-sessions",
-      piCommand: "LOCALPI_TEST=ok sh -c 'test \"$LOCALPI_TEST\" = ok' --",
+      piCommand: ["sh", "-c", 'test "$LOCALPI_TEST" = ok'],
       providers: [
         { id: "local-openai", baseUrl: "http://127.0.0.1:1234/v1", models: [{ id: "auto" }] }
       ],
       defaultProvider: "local-openai",
       defaultModel: "auto",
-      thinking: "medium"
+      thinking: "medium",
+      env: { LOCALPI_TEST: "ok" }
     });
 
     await expect(execPiLaunchPlan(plan)).resolves.toBe(0);
@@ -151,7 +146,7 @@ describe("pi-factory", () => {
         name: "Minimal Agent",
         stateDir,
         sessionDir: path.join(stateDir, "sessions"),
-        piCommand: "sh -c 'exit 0' --",
+        piCommand: ["true"],
         providers: [
           {
             id: "local-openai",
@@ -239,12 +234,9 @@ state_dir = "/tmp/pi-factory-state"
   it("rejects malformed optional string fields", () => {
     expect(() =>
       parsePiAppManifest(
-        sampleManifest("/tmp/pi-factory-state").replace(
-          "pi_command = \"sh -c 'exit 0' --\"",
-          "pi_command = 123"
-        )
+        sampleManifest("/tmp/pi-factory-state").replace('pi_command = ["true"]', "pi_command = 123")
       )
-    ).toThrow("pi_command must be a string");
+    ).toThrow("pi_command must be an array of strings");
   });
 
   it("preserves build platform filters", () => {
@@ -608,7 +600,7 @@ platforms = ["linux"]
     await chmod(fakePi, 0o755);
     await writeFile(
       path.join(root, "pi-factory.toml"),
-      sampleManifest(path.join(root, "state")).replace("sh -c 'exit 0' --", fakePi)
+      sampleManifest(path.join(root, "state")).replace('["true"]', JSON.stringify([fakePi]))
     );
     try {
       const result = await run(["run", "--app-dir", root]);
@@ -656,7 +648,7 @@ name = "$app_name"
 version = "0.1.0"
 schema_version = 1
 state_dir = "state"
-pi_command = "sh -c 'exit 0' --"
+pi_command = ["true"]
 thinking = "medium"
 system_prompt = "prompts/system.md"
 
@@ -706,7 +698,7 @@ name = "Demo Agent"
 version = "0.1.0"
 schema_version = 1
 state_dir = "${stateDir}"
-pi_command = "sh -c 'exit 0' --"
+pi_command = ["true"]
 thinking = "medium"
 tools = ["read", "bash"]
 system_prompt = "prompts/system.md"
