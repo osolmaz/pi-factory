@@ -83,11 +83,12 @@ describe("target working directories", () => {
 
     const definition = {
       ...app(root, stateDir),
-      piCommand: "sh -c './bin/pi'",
+      piCommand: `sh -c './bin/pi "$@"' --`,
       env: { PI_FACTORY_TEST_OUTPUT: output }
     };
     const plan = await createPiLaunchPlan(definition, undefined, { cwd: target });
-    expect(plan.command).toBe(`sh -c '${executable}'`);
+    expect(plan.command).toContain(executable);
+    expect(plan.command).toContain('"$@"');
     await expect(runPiApp(definition, { cwd: target })).resolves.toBe(0);
     expect(await readFile(output, "utf8")).toBe(`${target}\n`);
 

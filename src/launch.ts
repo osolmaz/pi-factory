@@ -144,15 +144,36 @@ async function commandReplacement(
   word: CommandWord,
   appRoot: string
 ): Promise<CommandReplacement | undefined> {
-  const reference = bundlePathReference(word.value);
-  if (reference === undefined) return undefined;
-  const absolute = resolve(appRoot, reference.path);
-  if (!(await pathExists(absolute))) return undefined;
+  const resolved = await resolveCommandWord(word.value, appRoot);
+  if (resolved === undefined) return undefined;
   return {
     start: word.start,
     end: word.end,
-    value: shellQuote(`${reference.prefix}${absolute}`)
+    value: shellQuote(resolved)
   };
+}
+
+async function resolveCommandWord(value: string, appRoot: string): Promise<string | undefined> {
+  const direct = await resolveBundleReference(value, appRoot);
+  if (direct !== undefined) return direct;
+
+  const replacements: CommandReplacement[] = [];
+  for (const word of commandWords(value)) {
+    const resolved = await resolveBundleReference(word.value, appRoot);
+    if (resolved !== undefined) {
+      replacements.push({ start: word.start, end: word.end, value: shellQuote(resolved) });
+    }
+  }
+  if (replacements.length === 0) return undefined;
+  return applyCommandReplacements(value, replacements);
+}
+
+async function resolveBundleReference(value: string, appRoot: string): Promise<string | undefined> {
+  const reference = bundlePathReference(value);
+  if (reference === undefined) return undefined;
+  const absolute = resolve(appRoot, reference.path);
+  if (!(await pathExists(absolute))) return undefined;
+  return `${reference.prefix}${absolute}`;
 }
 
 function applyCommandReplacements(
@@ -300,7 +321,7 @@ function shellQuote(value: string): string {
 
 function assertLaunchCommand(command: string): void {
   const [program] = commandWords(command);
-  if (program === undefined) {
+  if (program === undefined || program.value === "") {
     throw new Error("launch command must not be empty");
   }
 }
