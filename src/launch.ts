@@ -119,10 +119,8 @@ function bundlePathReference(value: string): { prefix: string; path: string } | 
   const prefix = equals === -1 ? "" : value.slice(0, equals + 1);
   const path = equals === -1 ? value : value.slice(equals + 1);
   const staticPath =
-    /[\\/]/u.test(path) &&
+    /^\.{1,2}[\\/]/u.test(path) &&
     !isAbsolute(path) &&
-    !path.startsWith("@") &&
-    !/^[A-Za-z][A-Za-z+.-]*:/u.test(path) &&
     !["$", "*", "?", "[", "]", "{", "}", "~", "`"].some((char) => path.includes(char));
   if (!staticPath) return undefined;
   return { prefix, path };
