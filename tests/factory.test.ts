@@ -91,6 +91,9 @@ describe("pi-factory", () => {
     await expect(execPiLaunchPlan({ ...plan, command: "" })).rejects.toThrow(
       "launch command must not be empty"
     );
+    await expect(execPiLaunchPlan({ ...plan, command: "''" })).rejects.toThrow(
+      "launch command must not be empty"
+    );
     await expect(execPiLaunchPlan({ ...plan, command: "sh 'unterminated" })).rejects.toThrow(
       "unterminated quote"
     );
