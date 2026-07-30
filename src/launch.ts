@@ -58,6 +58,7 @@ export async function runPiApp(
   app: PiAppDefinition,
   overrides: PiLaunchOverrides = {}
 ): Promise<number> {
+  validateRuntimeMessages(overrides);
   const cwd = await launchCwd(app, overrides.cwd);
   const runtimeConfig = await writePiRuntimeConfig(app);
   await mkdir(app.sessionDir, { recursive: true });
@@ -91,7 +92,7 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 
 function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
   const mode = overrides.mode ?? "interactive";
-  assertRuntimeMessages(mode, overrides.messages);
+  validateRuntimeMessages(overrides);
   const args: string[] = [];
   args.push(...modeArgs(mode));
   if (overrides.session !== undefined) args.push("--session", overrides.session);
@@ -100,20 +101,31 @@ function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
   return args;
 }
 
-function assertRuntimeMessages(mode: PiRunMode, messages: readonly string[] | undefined): void {
-  if (mode === "rpc" && messages !== undefined && messages.length > 0) {
+function validateRuntimeMessages(overrides: PiLaunchOverrides): void {
+  if (
+    overrides.mode === "rpc" &&
+    overrides.messages !== undefined &&
+    overrides.messages.length > 0
+  ) {
     throw new Error("RPC mode accepts messages through stdin, not launch arguments");
   }
 }
 
 function launchCommand(app: PiAppDefinition): string {
   if (app.rootDir === undefined) return app.piCommand;
-  const match = /^(\s*)(\.{1,2}\/[^\s]*)/u.exec(app.piCommand);
-  if (match === null) return app.piCommand;
-  const relativeProgram = match[2];
-  if (relativeProgram === undefined) return app.piCommand;
-  const absoluteProgram = resolve(app.rootDir, relativeProgram);
-  return `${match[1] ?? ""}${shellQuote(absoluteProgram)}${app.piCommand.slice(match[0].length)}`;
+  const relativePath = /(^|\s)(\.{1,2}\/[^\s;&|()<>]+)/gu;
+  let command = "";
+  let cursor = 0;
+  for (const match of app.piCommand.matchAll(relativePath)) {
+    const index = match.index;
+    const prefix = match[1] ?? "";
+    const path = match[2];
+    if (path === undefined) continue;
+    command += app.piCommand.slice(cursor, index);
+    command += `${prefix}${shellQuote(resolve(app.rootDir, path))}`;
+    cursor = index + match[0].length;
+  }
+  return `${command}${app.piCommand.slice(cursor)}`;
 }
 
 function modeArgs(mode: PiRunMode): readonly string[] {
