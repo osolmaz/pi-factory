@@ -83,13 +83,31 @@ describe("target working directories", () => {
 
     const definition = {
       ...app(root, stateDir),
-      piCommand: "sh ./bin/pi",
+      piCommand: "sh -c './bin/pi'",
       env: { PI_FACTORY_TEST_OUTPUT: output }
     };
     const plan = await createPiLaunchPlan(definition, undefined, { cwd: target });
-    expect(plan.command).toBe(`sh '${executable}'`);
+    expect(plan.command).toBe(`sh -c '${executable}'`);
     await expect(runPiApp(definition, { cwd: target })).resolves.toBe(0);
     expect(await readFile(output, "utf8")).toBe(`${target}\n`);
+
+    const scriptsDir = path.join(root, "scripts");
+    const nodeScript = path.join(scriptsDir, "launch-pi.mjs");
+    await mkdir(scriptsDir);
+    await writeFile(nodeScript, "process.exit(0);\n");
+    const nodePlan = await createPiLaunchPlan(
+      { ...definition, piCommand: "node scripts/launch-pi.mjs" },
+      undefined,
+      { cwd: target }
+    );
+    expect(nodePlan.command).toBe(`node '${nodeScript}'`);
+
+    const dynamicPlan = await createPiLaunchPlan(
+      { ...definition, piCommand: "./$PI_WRAPPER" },
+      undefined,
+      { cwd: target }
+    );
+    expect(dynamicPlan.command).toBe("./$PI_WRAPPER");
   });
 
   it("rejects initial messages in RPC mode before writing runtime state", async () => {
