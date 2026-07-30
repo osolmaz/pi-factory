@@ -27,7 +27,7 @@ export async function createPiLaunchPlan(
   return {
     appId: app.id,
     appName: app.name,
-    command: app.piCommand,
+    command: launchCommand(app),
     args: [
       "--provider",
       app.defaultProvider,
@@ -90,12 +90,30 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 }
 
 function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
+  const mode = overrides.mode ?? "interactive";
+  assertRuntimeMessages(mode, overrides.messages);
   const args: string[] = [];
-  args.push(...modeArgs(overrides.mode ?? "interactive"));
+  args.push(...modeArgs(mode));
   if (overrides.session !== undefined) args.push("--session", overrides.session);
   if (overrides.name !== undefined) args.push("--name", overrides.name);
   args.push(...(overrides.messages ?? []));
   return args;
+}
+
+function assertRuntimeMessages(mode: PiRunMode, messages: readonly string[] | undefined): void {
+  if (mode === "rpc" && messages !== undefined && messages.length > 0) {
+    throw new Error("RPC mode accepts messages through stdin, not launch arguments");
+  }
+}
+
+function launchCommand(app: PiAppDefinition): string {
+  if (app.rootDir === undefined) return app.piCommand;
+  const match = /^(\s*)(\.{1,2}\/[^\s]*)/u.exec(app.piCommand);
+  if (match === null) return app.piCommand;
+  const relativeProgram = match[2];
+  if (relativeProgram === undefined) return app.piCommand;
+  const absoluteProgram = resolve(app.rootDir, relativeProgram);
+  return `${match[1] ?? ""}${shellQuote(absoluteProgram)}${app.piCommand.slice(match[0].length)}`;
 }
 
 function modeArgs(mode: PiRunMode): readonly string[] {

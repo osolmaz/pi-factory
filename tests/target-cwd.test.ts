@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -68,6 +68,38 @@ describe("target working directories", () => {
       "vendor update",
       "Update the vendored packages"
     ]);
+  });
+
+  it("resolves bundle-relative launch commands while running in the target cwd", async () => {
+    const root = await tempDir("pi-factory-app-");
+    const target = await tempDir("pi-factory-target-");
+    const stateDir = path.join(root, "state");
+    const output = path.join(root, "launch-cwd.txt");
+    const binDir = path.join(root, "bin");
+    const executable = path.join(binDir, "pi");
+    await mkdir(binDir);
+    await writeFile(executable, `#!/bin/sh\nprintf '%s\\n' "$PWD" > "$PI_FACTORY_TEST_OUTPUT"\n`);
+    await chmod(executable, 0o755);
+
+    const definition = {
+      ...app(root, stateDir),
+      piCommand: "./bin/pi",
+      env: { PI_FACTORY_TEST_OUTPUT: output }
+    };
+    const plan = await createPiLaunchPlan(definition, undefined, { cwd: target });
+    expect(plan.command).toBe(`'${executable}'`);
+    await expect(runPiApp(definition, { cwd: target })).resolves.toBe(0);
+    expect(await readFile(output, "utf8")).toBe(`${target}\n`);
+  });
+
+  it("rejects initial messages in RPC mode", async () => {
+    const root = await tempDir("pi-factory-app-");
+    await expect(
+      createPiLaunchPlan(app(root, path.join(root, "state")), undefined, {
+        mode: "rpc",
+        messages: ["This would be ignored"]
+      })
+    ).rejects.toThrow("RPC mode accepts messages through stdin");
   });
 
   it("rejects missing and non-directory target paths before launch", async () => {
