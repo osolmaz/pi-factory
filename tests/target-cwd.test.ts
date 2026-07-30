@@ -83,23 +83,29 @@ describe("target working directories", () => {
 
     const definition = {
       ...app(root, stateDir),
-      piCommand: "./bin/pi",
+      piCommand: "sh ./bin/pi",
       env: { PI_FACTORY_TEST_OUTPUT: output }
     };
     const plan = await createPiLaunchPlan(definition, undefined, { cwd: target });
-    expect(plan.command).toBe(`'${executable}'`);
+    expect(plan.command).toBe(`sh '${executable}'`);
     await expect(runPiApp(definition, { cwd: target })).resolves.toBe(0);
     expect(await readFile(output, "utf8")).toBe(`${target}\n`);
   });
 
-  it("rejects initial messages in RPC mode", async () => {
+  it("rejects initial messages in RPC mode before writing runtime state", async () => {
     const root = await tempDir("pi-factory-app-");
+    const stateDir = path.join(root, "state");
+    const definition = app(root, stateDir);
+    const overrides = { mode: "rpc", messages: ["This would be ignored"] } as const;
+    await expect(createPiLaunchPlan(definition, undefined, overrides)).rejects.toThrow(
+      "RPC mode accepts messages through stdin"
+    );
+    await expect(runPiApp(definition, overrides)).rejects.toThrow(
+      "RPC mode accepts messages through stdin"
+    );
     await expect(
-      createPiLaunchPlan(app(root, path.join(root, "state")), undefined, {
-        mode: "rpc",
-        messages: ["This would be ignored"]
-      })
-    ).rejects.toThrow("RPC mode accepts messages through stdin");
+      readFile(path.join(stateDir, "pi-config-runtime", "settings.json"))
+    ).rejects.toThrow();
   });
 
   it("rejects missing and non-directory target paths before launch", async () => {
