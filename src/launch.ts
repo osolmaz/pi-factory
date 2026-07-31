@@ -32,28 +32,54 @@ export async function createPiLaunchPlan(
     args: [
       ...command.args,
       "--provider",
-      app.defaultProvider,
+      overrides.provider ?? app.defaultProvider,
       "--model",
-      app.defaultModel,
+      overrides.model ?? app.defaultModel,
       "--thinking",
-      app.thinking,
+      overrides.thinking ?? app.thinking,
       ...extensionArgs(app),
       ...systemPromptArgs(app),
       ...withDefaultTools(app.forwardedArgs ?? [], app.tools),
       ...runtimeArgs(overrides)
     ],
-    env: {
-      ...appEnv,
-      PI_CODING_AGENT_DIR: runtimeConfig.configDir,
-      PI_CODING_AGENT_SESSION_DIR: app.sessionDir,
-      PI_OFFLINE: process.env["PI_OFFLINE"] ?? "1",
-      PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",
-      PI_SKIP_VERSION_CHECK: process.env["PI_SKIP_VERSION_CHECK"] ?? "1"
-    },
+    env: launchEnv(app, runtimeConfig, appEnv),
     ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
     warnings
   };
+}
+
+export async function createPiCommandPlan(
+  app: PiAppDefinition,
+  piArgs: readonly string[],
+  runtimeConfig: PiRuntimeConfigPaths = runtimeConfigPaths(app),
+  cwdOverride?: string
+): Promise<PiLaunchPlan> {
+  const appEnv = withoutManagedPiEnv(app.env);
+  const warnings = managedPiEnvWarnings(app.env);
+  const cwd = await launchCwd(app, cwdOverride);
+  const command = await resolveLaunchCommand(app);
+  return {
+    appId: app.id,
+    appName: app.name,
+    command: command.program,
+    args: [...command.args, ...piArgs],
+    env: launchEnv(app, runtimeConfig, appEnv),
+    ...(cwd === undefined ? {} : { cwd }),
+    runtimeConfig,
+    warnings
+  };
+}
+
+export async function runPiCommand(
+  app: PiAppDefinition,
+  piArgs: readonly string[],
+  cwdOverride?: string
+): Promise<number> {
+  const cwd = await launchCwd(app, cwdOverride);
+  const runtimeConfig = await writePiRuntimeConfig(app);
+  await mkdir(app.sessionDir, { recursive: true });
+  return await execPiLaunchPlan(await createPiCommandPlan(app, piArgs, runtimeConfig, cwd));
 }
 
 export async function runPiApp(
@@ -131,6 +157,7 @@ function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
   validateRuntimeMessages(overrides);
   const args: string[] = [];
   args.push(...modeArgs(mode));
+  if (overrides.noSession === true) args.push("--no-session");
   if (overrides.session !== undefined) args.push("--session", overrides.session);
   if (overrides.name !== undefined) args.push("--name", overrides.name);
   args.push(...(overrides.messages ?? []));
@@ -144,6 +171,9 @@ function validateRuntimeMessages(overrides: PiLaunchOverrides): void {
     overrides.messages.length > 0
   ) {
     throw new Error("RPC mode accepts messages through stdin, not launch arguments");
+  }
+  if (overrides.noSession === true && overrides.session !== undefined) {
+    throw new Error("noSession and session are mutually exclusive");
   }
 }
 
@@ -217,6 +247,21 @@ function hasToolFlag(args: readonly string[]): boolean {
   return args.some(
     (arg) => arg === "--tools" || arg === "-t" || arg === "--no-tools" || arg === "-nt"
   );
+}
+
+function launchEnv(
+  app: PiAppDefinition,
+  runtimeConfig: PiRuntimeConfigPaths,
+  appEnv: Readonly<Record<string, string>>
+): Readonly<Record<string, string>> {
+  return {
+    ...appEnv,
+    PI_CODING_AGENT_DIR: runtimeConfig.configDir,
+    PI_CODING_AGENT_SESSION_DIR: app.sessionDir,
+    PI_OFFLINE: process.env["PI_OFFLINE"] ?? "1",
+    PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",
+    PI_SKIP_VERSION_CHECK: process.env["PI_SKIP_VERSION_CHECK"] ?? "1"
+  };
 }
 
 function withoutManagedPiEnv(

@@ -24,19 +24,21 @@ export function runtimeConfigPathsForApp(app: PiAppDefinition): PiRuntimeConfig 
 function modelsConfig(app: PiAppDefinition): unknown {
   return {
     providers: Object.fromEntries(
-      app.providers.map((provider) => [
-        provider.id,
-        {
-          baseUrl: provider.baseUrl,
-          api: provider.api ?? "openai-completions",
-          apiKey: provider.apiKey ?? "local",
-          compat: {
-            supportsDeveloperRole: provider.compat?.supportsDeveloperRole ?? false,
-            supportsReasoningEffort: provider.compat?.supportsReasoningEffort ?? false
-          },
-          models: provider.models.map((model) => modelConfig(model))
-        }
-      ])
+      app.providers
+        .filter((provider) => provider.source !== "pi")
+        .map((provider) => [
+          provider.id,
+          {
+            baseUrl: provider.baseUrl,
+            api: provider.api ?? "openai-completions",
+            apiKey: provider.apiKey ?? "local",
+            compat: {
+              supportsDeveloperRole: provider.compat?.supportsDeveloperRole ?? false,
+              supportsReasoningEffort: provider.compat?.supportsReasoningEffort ?? false
+            },
+            models: provider.models.map((model) => modelConfig(model))
+          }
+        ])
     )
   };
 }
@@ -61,17 +63,16 @@ function modelConfig(model: PiModelDefinition): unknown {
 }
 
 function settingsConfig(app: PiAppDefinition): unknown {
-  const model = app.providers
-    .find((provider) => provider.id === app.defaultProvider)
-    ?.models.find((entry) => entry.id === app.defaultModel);
-  return {
+  const provider = app.providers.find((entry) => entry.id === app.defaultProvider);
+  const model = provider?.models.find((entry) => entry.id === app.defaultModel);
+  return withoutUndefined({
     defaultProvider: app.defaultProvider,
     defaultModel: app.defaultModel,
     defaultThinkingLevel: app.thinking,
     enableInstallTelemetry: false,
     quietStartup: true,
-    compaction: compactionConfig(model?.contextWindow)
-  };
+    compaction: provider?.source === "pi" ? undefined : compactionConfig(model?.contextWindow)
+  });
 }
 
 function compactionConfig(contextWindow: number | undefined): unknown {

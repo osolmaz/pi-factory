@@ -140,15 +140,51 @@ function readProviderFields(
   errors: string[]
 ): ProviderManifestFields {
   const provider = tableField(value, "provider", errors);
-  const providerApi = provider === undefined ? undefined : optionalString(provider, "api", errors);
+  if (provider === undefined) {
+    return {} as ProviderManifestFields;
+  }
+  const id = stringField(provider, "id", errors) as string;
+  return providerSource(provider, errors) === "pi"
+    ? readPiProvider(id, provider, errors)
+    : readCustomProvider(id, provider, errors);
+}
+
+function providerSource(provider: Record<string, unknown>, errors: string[]): "pi" | "custom" {
+  const source = optionalString(provider, "source", errors);
+  if (source === "pi" || source === "custom" || source === undefined) {
+    return source ?? "custom";
+  }
+  errors.push("provider.source must be pi or custom");
+  return "custom";
+}
+
+function readPiProvider(
+  id: string,
+  provider: Record<string, unknown>,
+  errors: string[]
+): ProviderManifestFields {
+  if (provider["base_url"] !== undefined) {
+    errors.push("provider.base_url is not allowed when provider.source is pi");
+  }
+  if (provider["api"] !== undefined) {
+    errors.push("provider.api is not allowed when provider.source is pi");
+  }
+  return { id, source: "pi" };
+}
+
+function readCustomProvider(
+  id: string,
+  provider: Record<string, unknown>,
+  errors: string[]
+): ProviderManifestFields {
+  const providerApi = optionalString(provider, "api", errors);
   if (providerApi !== undefined && !isProviderApi(providerApi)) {
     errors.push("provider.api must be openai-completions");
   }
   return {
-    id: (provider === undefined ? undefined : stringField(provider, "id", errors)) as string,
-    base_url: (provider === undefined
-      ? undefined
-      : stringField(provider, "base_url", errors)) as string,
+    id,
+    source: "custom",
+    base_url: stringField(provider, "base_url", errors) as string,
     ...(providerApi === undefined ? {} : { api: providerApi as PiProviderApi })
   };
 }
@@ -239,8 +275,16 @@ export async function manifestToDefinition(
 }
 
 function providerDefinition(manifest: PiAppManifest): PiAppDefinition["providers"][number] {
+  if (manifest.provider.source === "pi") {
+    return {
+      id: manifest.provider.id,
+      source: "pi",
+      models: [modelDefinition(manifest)]
+    };
+  }
   return {
     id: manifest.provider.id,
+    source: "custom",
     baseUrl: manifest.provider.base_url,
     api: manifest.provider.api ?? "openai-completions",
     models: [modelDefinition(manifest)]
