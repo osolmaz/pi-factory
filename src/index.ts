@@ -11,10 +11,12 @@ export type {
   PiRunMode
 } from "./types.js";
 export {
+  createPiCommandPlan,
   createPiLaunchPlan,
   execPiLaunchPlan,
   runtimeConfigPaths,
   runPiApp,
+  runPiCommand,
   shellCommand
 } from "./launch.js";
 export {

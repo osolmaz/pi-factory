@@ -22,17 +22,24 @@ export type PiModelDefinition = {
   readonly cost?: PiModelCost;
 };
 
-export type PiProviderDefinition = {
-  readonly id: string;
-  readonly baseUrl: string;
-  readonly api?: PiProviderApi;
-  readonly apiKey?: string;
-  readonly compat?: {
-    readonly supportsDeveloperRole?: boolean;
-    readonly supportsReasoningEffort?: boolean;
-  };
-  readonly models: readonly PiModelDefinition[];
-};
+export type PiProviderDefinition =
+  | {
+      readonly id: string;
+      readonly source: "pi";
+      readonly models: readonly PiModelDefinition[];
+    }
+  | {
+      readonly id: string;
+      readonly source?: "custom";
+      readonly baseUrl: string;
+      readonly api?: PiProviderApi;
+      readonly apiKey?: string;
+      readonly compat?: {
+        readonly supportsDeveloperRole?: boolean;
+        readonly supportsReasoningEffort?: boolean;
+      };
+      readonly models: readonly PiModelDefinition[];
+    };
 
 export type PiExtensionDefinition = {
   readonly path: string;
@@ -81,11 +88,17 @@ export type PiAppManifest = {
   readonly thinking?: PiThinkingLevel;
   readonly tools?: readonly string[];
   readonly system_prompt?: string;
-  readonly provider: {
-    readonly id: string;
-    readonly base_url: string;
-    readonly api?: PiProviderApi;
-  };
+  readonly provider:
+    | {
+        readonly id: string;
+        readonly source: "pi";
+      }
+    | {
+        readonly id: string;
+        readonly source?: "custom";
+        readonly base_url: string;
+        readonly api?: PiProviderApi;
+      };
   readonly model: {
     readonly id: string;
     readonly name?: string;
@@ -116,7 +129,11 @@ export type PiLaunchOverrides = {
   readonly cwd?: string;
   readonly mode?: PiRunMode;
   readonly session?: string;
+  readonly noSession?: boolean;
   readonly name?: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly thinking?: PiThinkingLevel;
   readonly messages?: readonly string[];
 };
 

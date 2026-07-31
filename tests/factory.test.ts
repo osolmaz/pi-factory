@@ -7,7 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 import { run } from "../src/cli/cli.js";
 import { initPiApp } from "../src/init.js";
 import { installPiApp, parseGithubSource } from "../src/install.js";
-import { createPiLaunchPlan, execPiLaunchPlan, shellCommand } from "../src/launch.js";
+import {
+  createPiCommandPlan,
+  createPiLaunchPlan,
+  execPiLaunchPlan,
+  runPiCommand,
+  shellCommand
+} from "../src/launch.js";
 import { loadPiApp, manifestToDefinition, parsePiAppManifest } from "../src/manifest.js";
 import { expandPath, safePathComponent } from "../src/paths.js";
 import {
@@ -110,6 +116,117 @@ describe("pi-factory", () => {
     });
 
     await expect(execPiLaunchPlan(plan)).resolves.toBe(0);
+  });
+
+  it("supports Pi catalog providers without replacing their catalog", async () => {
+    const stateDir = await mkdtemp(path.join(os.tmpdir(), "pi-factory-catalog-"));
+    try {
+      const manifest = parsePiAppManifest(`id = "reviewer"
+name = "Reviewer"
+version = "0.1.0"
+schema_version = 1
+state_dir = "${stateDir}"
+pi_command = ["true"]
+thinking = "high"
+
+[provider]
+id = "openai-codex"
+source = "pi"
+
+[model]
+id = "gpt-review"
+reasoning = true
+`);
+      const app = await manifestToDefinition(manifest, stateDir);
+      expect(app.providers[0]).toMatchObject({ id: "openai-codex", source: "pi" });
+      const runtime = await writePiRuntimeConfig(app);
+      const models = JSON.parse(await readFile(runtime.modelsPath, "utf8")) as {
+        providers: Record<string, unknown>;
+      };
+      expect(models.providers).toEqual({});
+      const settings = JSON.parse(await readFile(runtime.settingsPath, "utf8")) as {
+        defaultProvider?: string;
+        defaultModel?: string;
+        defaultThinkingLevel?: string;
+        compaction?: unknown;
+      };
+      expect(settings).toMatchObject({
+        defaultProvider: "openai-codex",
+        defaultModel: "gpt-review",
+        defaultThinkingLevel: "high"
+      });
+      expect(settings).not.toHaveProperty("compaction");
+    } finally {
+      await rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects custom fields on Pi catalog providers", () => {
+    expect(() =>
+      parsePiAppManifest(`id = "reviewer"
+name = "Reviewer"
+version = "0.1.0"
+schema_version = 1
+state_dir = "/tmp/reviewer"
+
+[provider]
+id = "openai-codex"
+source = "pi"
+base_url = "https://example.invalid"
+api = "openai-completions"
+
+[model]
+id = "gpt-review"
+`)
+    ).toThrow("provider.base_url is not allowed when provider.source is pi");
+    expect(() =>
+      parsePiAppManifest(
+        sampleManifest("/tmp/pi-factory-state").replace(
+          'id = "local-openai"',
+          'id = "local-openai"\nsource = "unknown"'
+        )
+      )
+    ).toThrow("provider.source must be pi or custom");
+  });
+
+  it("applies model overrides and ephemeral sessions to launch plans", async () => {
+    const root = await createAppBundle();
+    try {
+      const loaded = await loadPiApp({ appDir: root });
+      const app = await manifestToDefinition(loaded.manifest, loaded.appRoot);
+      const plan = await createPiLaunchPlan(app, undefined, {
+        provider: "openai-codex",
+        model: "gpt-review",
+        thinking: "high",
+        noSession: true,
+        mode: "json",
+        messages: ["Review this change"]
+      });
+      expect(plan.args).toContain("openai-codex");
+      expect(plan.args).toContain("gpt-review");
+      expect(plan.args).toContain("high");
+      expect(plan.args.slice(-4)).toEqual(["--mode", "json", "--no-session", "Review this change"]);
+      await expect(
+        createPiLaunchPlan(app, undefined, { noSession: true, session: "saved" })
+      ).rejects.toThrow("noSession and session are mutually exclusive");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("creates native Pi command plans in the isolated app profile", async () => {
+    const root = await createAppBundle();
+    try {
+      const loaded = await loadPiApp({ appDir: root });
+      const app = await manifestToDefinition(loaded.manifest, loaded.appRoot);
+      const plan = await createPiCommandPlan(app, ["auth", "login", "openai-codex"]);
+      expect(plan.args).toEqual(["auth", "login", "openai-codex"]);
+      expect(plan.env["PI_CODING_AGENT_DIR"]).toContain("pi-config-runtime");
+      expect(plan.env["PI_CODING_AGENT_SESSION_DIR"]).toBe(app.sessionDir);
+      await expect(runPiCommand(app, ["--version"])).resolves.toBe(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("writes Pi models and settings config", async () => {

@@ -68,6 +68,20 @@ max_tokens = 8192
 reasoning = false
 ```
 
+To use a provider and model from Pi's built-in catalog, reference the provider instead of redefining it:
+
+```toml
+[provider]
+id = "openai-codex"
+source = "pi"
+
+[model]
+id = "gpt-5.6-terra"
+reasoning = true
+```
+
+Catalog providers use the app's isolated Pi profile for authentication. Pi Factory does not copy credentials from another profile.
+
 Add Pi extensions with normal Pi extension files:
 
 ```toml
@@ -147,18 +161,19 @@ pi-factory list
 
 ```ts
 import {
+  createPiCommandPlan,
   createPiLaunchPlan,
   loadPiApp,
   manifestToDefinition,
   runPiApp,
+  runPiCommand,
   writePiRuntimeConfig
 } from "@osolmaz/pi-factory";
 ```
 
 Use the API when another launcher wants Pi Factory's app resolution and config
 generation but owns its own model discovery or local runtime setup.
-`createPiLaunchPlan` and `runPiApp` accept launch overrides for a target `cwd`,
-Pi run mode, session, name, and initial messages.
+`createPiLaunchPlan` and `runPiApp` accept launch overrides for a target `cwd`, Pi run mode, provider, model, thinking level, ephemeral or named sessions, and initial messages. `createPiCommandPlan` and `runPiCommand` prepare native Pi commands such as app-scoped authentication and model listing with the same isolated profile.
 
 ## More
 

@@ -9,7 +9,7 @@ Required top-level fields:
 - `version`: app bundle version
 - `schema_version`: must be `1`
 - `state_dir`: app state directory
-- `[provider]`: Pi provider configuration
+- `[provider]`: a custom provider configuration or a reference to a Pi catalog provider
 - `[model]`: default model configuration
 
 Common optional fields:
@@ -57,6 +57,22 @@ PI_TELEMETRY = "0"
 path = "extensions/demo.ts"
 append_system_prompt = "prompts/demo.md"
 ```
+
+A catalog provider references a provider that Pi already knows:
+
+```toml
+[provider]
+id = "openai-codex"
+source = "pi"
+
+[model]
+id = "gpt-5.6-terra"
+reasoning = true
+```
+
+A catalog provider must not set `base_url` or `api`. Pi Factory leaves it out of generated `models.json`, while generated settings select its provider and model. Authentication stays inside the app's isolated Pi profile.
+
+Custom providers may omit `source` or set `source = "custom"`; both forms require `base_url` and preserve the existing v1 behavior.
 
 Paths are relative to the app bundle root unless absolute. `pi_command` is a
 nonempty argv array. Pi Factory does not interpret shell syntax in it. Prefix

@@ -170,6 +170,20 @@ may use ASCII letters, digits, dot, colon, underscore, and hyphen.
 
 Paths inside the manifest are relative to the app bundle root unless absolute.
 
+Apps may reference Pi's provider catalog instead of defining a custom endpoint:
+
+```toml
+[provider]
+id = "openai-codex"
+source = "pi"
+
+[model]
+id = "gpt-5.6-terra"
+reasoning = true
+```
+
+Pi Factory omits catalog providers from generated `models.json`. The app's isolated profile owns any authentication created for that provider.
+
 ## Install and Link
 
 Pi Factory should use a Herdr-style source model.
@@ -293,7 +307,7 @@ npx -y @earendil-works/pi-coding-agent@latest \
 Interactive launches should preserve Pi's native TUI.
 
 Print or structured modes may add Pi flags, but must still use Pi's existing
-CLI behavior.
+CLI behavior. Library callers may override provider, model, thinking level, and session behavior for one launch. Native Pi commands such as authentication and model listing use the same generated app profile through command plans.
 
 ## API Shape
 
