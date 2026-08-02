@@ -1,3 +1,12 @@
+export type { PiAuthGrant } from "./auth-grants.js";
+export {
+  defaultPiAuthFile,
+  getPiAuthGrant,
+  grantPiAuth,
+  loadPiAuthGrants,
+  revokePiAuth,
+  validatePiAuthFile
+} from "./auth-grants.js";
 export type {
   PiAppDefinition,
   PiAppManifest,

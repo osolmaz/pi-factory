@@ -3,6 +3,7 @@ import spawn from "cross-spawn";
 import { mkdir, realpath, stat } from "node:fs/promises";
 import { isAbsolute, resolve, sep } from "node:path";
 
+import { getPiAuthGrant } from "./auth-grants.js";
 import { runtimeConfigPathsForApp, writePiRuntimeConfig } from "./runtime-config.js";
 import type {
   PiAppDefinition,
@@ -31,6 +32,7 @@ export async function createPiLaunchPlan(
     command: command.program,
     args: [
       ...command.args,
+      ...(await authArgs(app.id)),
       "--provider",
       overrides.provider ?? app.defaultProvider,
       "--model",
@@ -63,7 +65,7 @@ export async function createPiCommandPlan(
     appId: app.id,
     appName: app.name,
     command: command.program,
-    args: [...command.args, ...piArgs],
+    args: [...command.args, ...(await authArgs(app.id)), ...piArgs],
     env: launchEnv(app, runtimeConfig, appEnv),
     ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
@@ -150,6 +152,11 @@ function bundlePathReference(value: string): { prefix: string; path: string } | 
     !["$", "*", "?", "[", "]", "{", "}", "~", "`"].some((char) => path.includes(char));
   if (!staticPath) return undefined;
   return { prefix, path };
+}
+
+async function authArgs(appId: string): Promise<readonly string[]> {
+  const grant = await getPiAuthGrant(appId);
+  return grant === undefined ? [] : ["--auth-file", grant.authFile];
 }
 
 function runtimeArgs(overrides: PiLaunchOverrides): readonly string[] {
