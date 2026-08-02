@@ -182,7 +182,7 @@ id = "gpt-5.6-terra"
 reasoning = true
 ```
 
-Pi Factory omits catalog providers from generated `models.json`. The app's isolated profile owns authentication by default. A local auth grant can point the app at regular Pi's credential file without changing its generated settings or models.
+Pi Factory omits catalog providers from generated `models.json`. The app's isolated profile owns authentication.
 
 ## Install and Link
 
@@ -307,7 +307,7 @@ npx -y @earendil-works/pi-coding-agent@latest \
 Interactive launches should preserve Pi's native TUI.
 
 Print or structured modes may add Pi flags, but must still use Pi's existing
-CLI behavior. Library callers may override provider, model, thinking level, and session behavior for one launch. Native Pi commands such as authentication and model listing use the generated app profile through command plans. When a local auth grant exists, command and app launch plans add Pi's `--auth-file` option automatically.
+CLI behavior. Library callers may override provider, model, thinking level, and session behavior for one launch. Native Pi commands such as authentication and model listing use the generated app profile through command plans.
 
 ## API Shape
 

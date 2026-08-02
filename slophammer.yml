@@ -21,7 +21,6 @@ typescript:
   dependency_boundaries:
     - from: src/cli
       allow:
-        - src/auth-grants
         - src/init
         - src/install
         - src/launch
@@ -34,13 +33,8 @@ typescript:
         - src/paths
         - src/registry
         - src/types
-    - from: src/auth-grants
-      allow:
-        - src/manifest
-        - src/paths
     - from: src/launch
       allow:
-        - src/auth-grants
         - src/runtime-config
         - src/types
     - from: src/manifest
