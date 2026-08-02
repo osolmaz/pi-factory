@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getPiAuthGrant, grantPiAuth, loadPiAuthGrants, revokePiAuth } from "../src/auth-grants.js";
-import { run } from "../src/cli/cli.js";
+import { authGrantPreview, run } from "../src/cli/cli.js";
 import { createPiCommandPlan, createPiLaunchPlan } from "../src/launch.js";
 import type { PiAppDefinition } from "../src/types.js";
 
@@ -111,6 +111,20 @@ describe("Pi auth grants", () => {
       '{"version":1,"grants":{},"credentials":"secret"}\n'
     );
     await expect(loadPiAuthGrants()).rejects.toThrow("unknown auth grant state field");
+  });
+
+  it("does not confuse prototype properties with saved grants", async () => {
+    await environment();
+    for (const appId of ["constructor", "toString", "__proto__"]) {
+      await expect(getPiAuthGrant(appId)).resolves.toBeUndefined();
+      await expect(revokePiAuth(appId)).resolves.toBe(false);
+    }
+  });
+
+  it("discloses that shared login state can be modified", () => {
+    const preview = authGrantPreview("pi-reviewer", "/home/user/.pi/agent/auth.json");
+    expect(preview).toContain("login and logout");
+    expect(preview).toContain("modify regular Pi authentication");
   });
 
   it("requires explicit confirmation outside an interactive terminal", async () => {
