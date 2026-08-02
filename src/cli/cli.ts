@@ -6,7 +6,8 @@ import {
   getPiAuthGrant,
   grantPiAuth,
   revokePiAuth,
-  validatePiAuthFile
+  validatePiAuthFile,
+  validatePiAuthGrantAppId
 } from "../auth-grants.js";
 import { createPiLaunchPlan, runPiApp } from "../launch.js";
 import { initPiApp } from "../init.js";
@@ -162,6 +163,7 @@ async function authRevoke(appId: string | undefined, options: readonly string[])
 
 async function authGrant(appId: string | undefined, options: readonly string[]): Promise<unknown> {
   const id = required(appId, "usage: pi-factory auth grant <app-id> --source pi [--yes]");
+  validatePiAuthGrantAppId(id);
   const parsed = parseAuthGrantOptions(options);
   const authFile = await validatePiAuthFile(defaultPiAuthFile());
   await confirmAuthGrant(id, authFile, parsed.yes);

@@ -51,7 +51,7 @@ export async function loadPiAuthGrants(): Promise<Readonly<Record<string, PiAuth
 }
 
 export async function getPiAuthGrant(appId: string): Promise<PiAuthGrant | undefined> {
-  validateAppId(appId);
+  validatePiAuthGrantAppId(appId);
   const grants = await loadPiAuthGrants();
   if (!Object.hasOwn(grants, appId)) return undefined;
   const grant = grants[appId];
@@ -63,7 +63,7 @@ export async function grantPiAuth(
   appId: string,
   authFile = defaultPiAuthFile()
 ): Promise<PiAuthGrant> {
-  validateAppId(appId);
+  validatePiAuthGrantAppId(appId);
   const grant: PiAuthGrant = { source: "pi", authFile: await validatePiAuthFile(authFile) };
   const current = await loadPiAuthGrants();
   await saveState({ version: 1, grants: { ...current, [appId]: grant } });
@@ -71,7 +71,7 @@ export async function grantPiAuth(
 }
 
 export async function revokePiAuth(appId: string): Promise<boolean> {
-  validateAppId(appId);
+  validatePiAuthGrantAppId(appId);
   const current = await loadPiAuthGrants();
   if (!Object.hasOwn(current, appId)) return false;
   const grants = Object.fromEntries(Object.entries(current).filter(([key]) => key !== appId));
@@ -142,7 +142,7 @@ function validateGrants(
 }
 
 function validateGrant(appId: string, value: unknown, source: string): PiAuthGrant {
-  validateAppId(appId);
+  validatePiAuthGrantAppId(appId);
   if (!isRecord(value) || value["source"] !== "pi" || typeof value["authFile"] !== "string") {
     throw new Error(`${source}: invalid auth grant for ${appId}`);
   }
@@ -163,7 +163,7 @@ function rejectUnknownFields(
   if (unknown.length > 0) throw new Error(`${message} ${unknown.join(", ")}`);
 }
 
-function validateAppId(appId: string): void {
+export function validatePiAuthGrantAppId(appId: string): void {
   if (!isValidPiAppId(appId)) throw new Error(`invalid Pi app id: ${appId}`);
 }
 

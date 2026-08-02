@@ -127,6 +127,14 @@ describe("Pi auth grants", () => {
     expect(preview).toContain("modify regular Pi authentication");
   });
 
+  it("rejects invalid app ids before confirmation", async () => {
+    await environment();
+    const result = await run(["auth", "grant", "bad\u001bapp", "--source", "pi"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("invalid Pi app id");
+    expect(result.stderr).not.toContain("requires --yes");
+  });
+
   it("requires explicit confirmation outside an interactive terminal", async () => {
     await environment();
     const result = await run(["auth", "grant", "pi-reviewer", "--source", "pi"]);
