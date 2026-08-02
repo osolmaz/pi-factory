@@ -52,7 +52,9 @@ export async function loadPiAuthGrants(): Promise<Readonly<Record<string, PiAuth
 
 export async function getPiAuthGrant(appId: string): Promise<PiAuthGrant | undefined> {
   validateAppId(appId);
-  const grant = (await loadPiAuthGrants())[appId];
+  const grants = await loadPiAuthGrants();
+  if (!Object.hasOwn(grants, appId)) return undefined;
+  const grant = grants[appId];
   if (grant === undefined) return undefined;
   return { ...grant, authFile: await validatePiAuthFile(grant.authFile) };
 }
@@ -71,7 +73,7 @@ export async function grantPiAuth(
 export async function revokePiAuth(appId: string): Promise<boolean> {
   validateAppId(appId);
   const current = await loadPiAuthGrants();
-  if (current[appId] === undefined) return false;
+  if (!Object.hasOwn(current, appId)) return false;
   const grants = Object.fromEntries(Object.entries(current).filter(([key]) => key !== appId));
   await saveState({ version: 1, grants });
   return true;

@@ -197,7 +197,7 @@ async function confirmAuthGrant(appId: string, authFile: string, yes: boolean): 
   if (!process.stdin.isTTY) {
     throw new Error("auth grant requires --yes when stdin is not interactive");
   }
-  process.stderr.write(`Pi auth grant preview:\n  app: ${appId}\n  auth file: ${authFile}\n`);
+  process.stderr.write(authGrantPreview(appId, authFile));
   const input = readline.createInterface({ input: process.stdin, output: process.stderr });
   try {
     const answer = await input.question("Grant access to this Pi auth file? [y/N] ");
@@ -205,6 +205,10 @@ async function confirmAuthGrant(appId: string, authFile: string, yes: boolean): 
   } finally {
     input.close();
   }
+}
+
+export function authGrantPreview(appId: string, authFile: string): string {
+  return `Pi auth grant preview:\n  app: ${appId}\n  auth file: ${authFile}\n  shared state: login and logout through this app modify regular Pi authentication\n`;
 }
 
 interface ParsedAppArgs {
