@@ -80,17 +80,7 @@ id = "gpt-5.6-terra"
 reasoning = true
 ```
 
-Catalog providers use the app's isolated Pi profile for authentication by default. Pi Factory never copies credentials between profiles.
-
-A user can grant one app access to regular Pi's canonical auth file. The grant is stored once in local Pi Factory state, so later app runs need no auth flag:
-
-```bash
-pi-factory auth grant my-app --source pi
-pi-factory auth status my-app
-pi-factory auth revoke my-app
-```
-
-The app keeps its own models, settings, resources, and sessions. Shared auth requires a Pi release that supports `--auth-file`.
+Catalog providers use the app's isolated Pi profile for authentication. Pi Factory never copies credentials between profiles.
 
 Add Pi extensions with normal Pi extension files:
 
@@ -189,7 +179,6 @@ generation but owns its own model discovery or local runtime setup.
 
 - [Specification](docs/spec.md)
 - [Manifest reference](docs/manifest-v1.md)
-- [Shared Pi authentication grants](docs/pi-auth-grants.md)
 
 ## License
 

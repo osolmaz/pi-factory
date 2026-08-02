@@ -9,10 +9,6 @@ export function appIndexPath(): string {
   return path.join(stateDir(), "apps.json");
 }
 
-export function authGrantStatePath(): string {
-  return path.join(stateDir(), "auth-grants.json");
-}
-
 export function managedAppsDir(): string {
   return path.join(stateDir(), "apps");
 }

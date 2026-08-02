@@ -574,6 +574,9 @@ platforms = ["linux"]
       expect(secondUninstall.stdout).toBe("not installed\n");
       const unknown = await run(["unknown"]);
       expect(unknown.code).toBe(2);
+      const removedAuth = await run(["auth", "status", "demo-agent"]);
+      expect(removedAuth.code).toBe(2);
+      expect(removedAuth.stderr).toContain("unknown command: auth");
       const missingAppDir = await run(["plan", "--app-dir"]);
       expect(missingAppDir.stderr).toContain("--app-dir requires a value");
     } finally {

@@ -70,9 +70,7 @@ id = "gpt-5.6-terra"
 reasoning = true
 ```
 
-A catalog provider must not set `base_url` or `api`. Pi Factory leaves it out of generated `models.json`, while generated settings select its provider and model. Authentication stays inside the app's isolated Pi profile by default.
-
-Auth grants are local Pi Factory state and never appear in `pi-factory.toml`. A user may grant an app access to regular Pi authentication with `pi-factory auth grant <app-id> --source pi`.
+A catalog provider must not set `base_url` or `api`. Pi Factory leaves it out of generated `models.json`, while generated settings select its provider and model. Authentication stays inside the app's isolated Pi profile.
 
 Custom providers may omit `source` or set `source = "custom"`; both forms require `base_url` and preserve the existing v1 behavior.
 
