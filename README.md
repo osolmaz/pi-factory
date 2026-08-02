@@ -179,6 +179,7 @@ generation but owns its own model discovery or local runtime setup.
 
 - [Specification](docs/spec.md)
 - [Manifest reference](docs/manifest-v1.md)
+- [Shared Pi authentication grants](docs/pi-auth-grants.md)
 
 ## License
 
