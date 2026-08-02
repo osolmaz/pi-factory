@@ -1,8 +1,6 @@
 # Shared Pi authentication grants
 
-This is a proposal.
-
-This document proposes an opt-in Pi Factory grant that lets one app use credentials from the user's regular Pi profile. The app keeps its own models, settings, prompts, tools, and sessions.
+This document defines an opt-in Pi Factory grant that lets one app use credentials from the user's regular Pi profile. The app keeps its own models, settings, prompts, tools, and sessions.
 
 ## User flow
 
@@ -22,7 +20,7 @@ The default remains an isolated app profile. Revoking the grant returns the app 
 
 Pi Factory continues to generate the app's `models.json` and `settings.json` under its state directory. It also keeps the app's session directory unchanged.
 
-For a granted app, the launch plan adds a proposed Pi option:
+For a granted app, the launch plan adds Pi's separate auth-file option:
 
 ```text
 --auth-file /home/user/.pi/agent/auth.json

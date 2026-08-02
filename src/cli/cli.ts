@@ -1,5 +1,13 @@
 import { stat } from "node:fs/promises";
+import readline from "node:readline/promises";
 
+import {
+  defaultPiAuthFile,
+  getPiAuthGrant,
+  grantPiAuth,
+  revokePiAuth,
+  validatePiAuthFile
+} from "../auth-grants.js";
 import { createPiLaunchPlan, runPiApp } from "../launch.js";
 import { initPiApp } from "../init.js";
 import { installPiApp } from "../install.js";
@@ -24,7 +32,8 @@ const COMMANDS: Readonly<Record<string, CommandHandler>> = {
   install: async (args) => ok(`${JSON.stringify(await install(args), null, 2)}\n`),
   uninstall: async (args) => ok(`${(await uninstall(args)) ? "uninstalled" : "not installed"}\n`),
   list: async () => ok(`${JSON.stringify(await listPiApps(), null, 2)}\n`),
-  inspect: async (args) => ok(`${JSON.stringify(await inspect(args), null, 2)}\n`)
+  inspect: async (args) => ok(`${JSON.stringify(await inspect(args), null, 2)}\n`),
+  auth: async (args) => ok(`${JSON.stringify(await auth(args), null, 2)}\n`)
 };
 
 export async function run(args: readonly string[]): Promise<CliResult> {
@@ -133,6 +142,71 @@ async function inspect(args: readonly string[]): Promise<unknown> {
   };
 }
 
+async function auth(args: readonly string[]): Promise<unknown> {
+  const [action, appId, ...options] = args;
+  if (action === "status") return await authStatus(appId, options);
+  if (action === "revoke") return await authRevoke(appId, options);
+  if (action === "grant") return await authGrant(appId, options);
+  throw new Error("usage: pi-factory auth <grant|status|revoke> <app-id>");
+}
+
+async function authStatus(appId: string | undefined, options: readonly string[]): Promise<unknown> {
+  const id = authAppId(appId, options, "usage: pi-factory auth status <app-id>");
+  return { appId: id, grant: (await getPiAuthGrant(id)) ?? null };
+}
+
+async function authRevoke(appId: string | undefined, options: readonly string[]): Promise<unknown> {
+  const id = authAppId(appId, options, "usage: pi-factory auth revoke <app-id>");
+  return { appId: id, revoked: await revokePiAuth(id) };
+}
+
+async function authGrant(appId: string | undefined, options: readonly string[]): Promise<unknown> {
+  const id = required(appId, "usage: pi-factory auth grant <app-id> --source pi [--yes]");
+  const parsed = parseAuthGrantOptions(options);
+  const authFile = await validatePiAuthFile(defaultPiAuthFile());
+  await confirmAuthGrant(id, authFile, parsed.yes);
+  return { appId: id, grant: await grantPiAuth(id, authFile) };
+}
+
+function authAppId(
+  appId: string | undefined,
+  options: readonly string[],
+  usageMessage: string
+): string {
+  if (options.length > 0) throw new Error(usageMessage);
+  return required(appId, usageMessage);
+}
+
+function parseAuthGrantOptions(options: readonly string[]): { readonly yes: boolean } {
+  let source: string | undefined;
+  let yes = false;
+  for (let index = 0; index < options.length; index += 1) {
+    const option = options[index];
+    if (option === "--yes" || option === "-y") yes = true;
+    else if (option === "--source") {
+      source = required(options[index + 1], "--source requires a value");
+      index += 1;
+    } else throw new Error(`unknown option: ${String(option)}`);
+  }
+  if (source !== "pi") throw new Error("auth grant source must be pi");
+  return { yes };
+}
+
+async function confirmAuthGrant(appId: string, authFile: string, yes: boolean): Promise<void> {
+  if (yes) return;
+  if (!process.stdin.isTTY) {
+    throw new Error("auth grant requires --yes when stdin is not interactive");
+  }
+  process.stderr.write(`Pi auth grant preview:\n  app: ${appId}\n  auth file: ${authFile}\n`);
+  const input = readline.createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const answer = await input.question("Grant access to this Pi auth file? [y/N] ");
+    if (!/^y(?:es)?$/iu.test(answer.trim())) throw new Error("Pi auth grant cancelled");
+  } finally {
+    input.close();
+  }
+}
+
 interface ParsedAppArgs {
   app?: string;
   appFile?: string;
@@ -231,6 +305,9 @@ function usage(): string {
     "  pi-factory uninstall <app-id>",
     "  pi-factory list",
     "  pi-factory inspect <app-id>|--app-dir <dir>|--app-file <file>",
+    "  pi-factory auth grant <app-id> --source pi [--yes]",
+    "  pi-factory auth status <app-id>",
+    "  pi-factory auth revoke <app-id>",
     ""
   ].join("\n")}\n`;
 }
