@@ -5,12 +5,14 @@ export type {
   PiLaunchOverrides,
   PiLaunchPlan,
   PiModelDefinition,
+  PiProfile,
   PiProviderDefinition,
   PiRuntimeConfig,
   PiRuntimeConfigPaths,
   PiRunMode
 } from "./types.js";
 export {
+  ambientAgentDir,
   createPiCommandPlan,
   createPiLaunchPlan,
   execPiLaunchPlan,

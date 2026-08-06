@@ -175,6 +175,31 @@ Use the API when another launcher wants Pi Factory's app resolution and config
 generation but owns its own model discovery or local runtime setup.
 `createPiLaunchPlan` and `runPiApp` accept launch overrides for a target `cwd`, Pi run mode, provider, model, thinking level, ephemeral or named sessions, and initial messages. `createPiCommandPlan` and `runPiCommand` prepare native Pi commands such as app-scoped authentication and model listing with the same isolated profile.
 
+### Ambient profile
+
+By default every launch uses the app's isolated Pi profile
+(`profile: "isolated"`). Passing `profile: "ambient"` as a launch override
+points `PI_CODING_AGENT_DIR` at the host Pi profile instead — the caller's
+`PI_CODING_AGENT_DIR` when set, otherwise `~/.pi/agent` — so the launched Pi
+reads the host profile's providers, models, and credentials in place. Nothing
+is copied between profiles; OAuth refresh writes go to the host profile's own
+`auth.json`. `PI_CODING_AGENT_SESSION_DIR` stays app-isolated, so sessions
+still belong to the app. The generated runtime config under the app state
+directory is unused in ambient mode.
+
+Ambient launches usually pair with resource-disabling flags so host-profile
+extensions, skills, prompt templates, and themes do not leak into the app. Set
+them through the app definition's `forwardedArgs` and add back only the
+extensions the app needs through the manifest's `[[extensions]]`:
+
+```ts
+const ambientApp = {
+  ...app,
+  forwardedArgs: ["--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes"]
+};
+await createPiLaunchPlan(ambientApp, undefined, { profile: "ambient" });
+```
+
 ## More
 
 - [Specification](docs/spec.md)

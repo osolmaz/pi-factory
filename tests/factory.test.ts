@@ -77,6 +77,37 @@ describe("pi-factory", () => {
     expect(plan.warnings).toContain("ignored managed env PI_CODING_AGENT_DIR");
   });
 
+  it("points the ambient profile at the host Pi agent dir", async () => {
+    const app = {
+      id: "ambient-agent",
+      name: "Ambient Agent",
+      stateDir: "/tmp/pi-factory-state",
+      sessionDir: "/tmp/pi-factory-sessions",
+      piCommand: ["true"],
+      providers: [{ id: "huggingface", source: "pi" as const, models: [{ id: "model-a" }] }],
+      defaultProvider: "huggingface",
+      defaultModel: "model-a",
+      thinking: "medium" as const
+    };
+    const isolated = await createPiLaunchPlan(app);
+    expect(isolated.env["PI_CODING_AGENT_DIR"]).toContain("pi-config-runtime");
+    vi.stubEnv("PI_CODING_AGENT_DIR", "/tmp/host-pi-agent");
+    try {
+      const ambient = await createPiLaunchPlan(app, undefined, { profile: "ambient" });
+      expect(ambient.env["PI_CODING_AGENT_DIR"]).toBe("/tmp/host-pi-agent");
+      expect(ambient.env["PI_CODING_AGENT_SESSION_DIR"]).toBe("/tmp/pi-factory-sessions");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    vi.stubEnv("PI_CODING_AGENT_DIR", undefined);
+    try {
+      const ambient = await createPiLaunchPlan(app, undefined, { profile: "ambient" });
+      expect(ambient.env["PI_CODING_AGENT_DIR"]).toBe(path.join(os.homedir(), ".pi", "agent"));
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("keeps launch args minimal when optional fields are absent", async () => {
     const plan = await createPiLaunchPlan({
       id: "minimal-agent",

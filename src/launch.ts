@@ -1,13 +1,15 @@
 import type { StdioOptions } from "node:child_process";
 import spawn from "cross-spawn";
 import { mkdir, realpath, stat } from "node:fs/promises";
-import { isAbsolute, resolve, sep } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, join, resolve, sep } from "node:path";
 
 import { runtimeConfigPathsForApp, writePiRuntimeConfig } from "./runtime-config.js";
 import type {
   PiAppDefinition,
   PiLaunchOverrides,
   PiLaunchPlan,
+  PiProfile,
   PiRuntimeConfigPaths,
   PiRunMode
 } from "./types.js";
@@ -42,7 +44,7 @@ export async function createPiLaunchPlan(
       ...withDefaultTools(app.forwardedArgs ?? [], app.tools),
       ...runtimeArgs(overrides)
     ],
-    env: launchEnv(app, runtimeConfig, appEnv),
+    env: launchEnv(app, runtimeConfig, appEnv, overrides.profile),
     ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
     warnings
@@ -252,16 +254,22 @@ function hasToolFlag(args: readonly string[]): boolean {
 function launchEnv(
   app: PiAppDefinition,
   runtimeConfig: PiRuntimeConfigPaths,
-  appEnv: Readonly<Record<string, string>>
+  appEnv: Readonly<Record<string, string>>,
+  profile: PiProfile = "isolated"
 ): Readonly<Record<string, string>> {
   return {
     ...appEnv,
-    PI_CODING_AGENT_DIR: runtimeConfig.configDir,
+    PI_CODING_AGENT_DIR:
+      profile === "ambient" ? ambientAgentDir(process.env) : runtimeConfig.configDir,
     PI_CODING_AGENT_SESSION_DIR: app.sessionDir,
     PI_OFFLINE: process.env["PI_OFFLINE"] ?? "1",
     PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",
     PI_SKIP_VERSION_CHECK: process.env["PI_SKIP_VERSION_CHECK"] ?? "1"
   };
+}
+
+export function ambientAgentDir(env: NodeJS.ProcessEnv): string {
+  return env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent");
 }
 
 function withoutManagedPiEnv(

@@ -125,9 +125,12 @@ export type PiRuntimeConfig = PiRuntimeConfigPaths;
 
 export type PiRunMode = "interactive" | "print" | "json" | "rpc";
 
+export type PiProfile = "isolated" | "ambient";
+
 export type PiLaunchOverrides = {
   readonly cwd?: string;
   readonly mode?: PiRunMode;
+  readonly profile?: PiProfile;
   readonly session?: string;
   readonly noSession?: boolean;
   readonly name?: string;
