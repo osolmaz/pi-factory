@@ -1,7 +1,14 @@
 {
   "name": "@osolmaz/pi-factory",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Declarative Pi application bundle launcher.",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "app-bundle",
+    "cli"
+  ],
   "type": "module",
   "license": "MIT",
   "repository": {
