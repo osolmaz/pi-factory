@@ -78,9 +78,28 @@ source = "pi"
 [model]
 id = "gpt-5.6-terra"
 reasoning = true
+
+[inherit]
+providers = ["openai-codex"]
 ```
 
-Catalog providers use the app's isolated Pi profile for authentication. Pi Factory never copies credentials between profiles.
+Pi Factory uses the selected provider implementation, models, and authentication from the user's
+main Pi profile. The app still selects its own provider and model, and Pi Factory does not write that
+selection back to normal Pi. Credentials stay in their existing store.
+
+Package resources are also explicit:
+
+```toml
+[[inherit.packages]]
+source = "example-package"
+extensions = ["extensions/example.ts"]
+skills = ["skills/example/SKILL.md"]
+prompt_templates = ["prompts/example.md"]
+themes = ["themes/example.json"]
+```
+
+Missing lists inherit nothing. Pi Factory disables ambient resource and context discovery, then adds
+only app-owned and selected paths.
 
 Add Pi extensions with normal Pi extension files:
 
@@ -163,6 +182,7 @@ pi-factory list
 import {
   createPiCommandPlan,
   createPiLaunchPlan,
+  createPiFactoryRuntime,
   loadPiApp,
   manifestToDefinition,
   runPiApp,
@@ -171,39 +191,22 @@ import {
 } from "@osolmaz/pi-factory";
 ```
 
-Use the API when another launcher wants Pi Factory's app resolution and config
-generation but owns its own model discovery or local runtime setup.
-`createPiLaunchPlan` and `runPiApp` accept launch overrides for a target `cwd`, Pi run mode, provider, model, thinking level, ephemeral or named sessions, and initial messages. `createPiCommandPlan` and `runPiCommand` prepare native Pi commands such as app-scoped authentication and model listing with the same isolated profile.
+Use the API when another launcher wants Pi Factory's app resolution and config generation but owns
+its own process. `createPiLaunchPlan` and `runPiApp` accept launch overrides for a target `cwd`, Pi
+run mode, provider, model, thinking level, ephemeral or named sessions, and initial messages.
 
-### Ambient profile
+`createPiFactoryRuntime` gives SDK apps the same explicit provider and package selection. It returns
+the selected `ModelRuntime`, model, restricted `DefaultResourceLoader`, and one `run` boundary for
+the complete high-level operation. The app's model choice is private to that runtime.
 
-By default every launch uses the app's isolated Pi profile
-(`profile: "isolated"`). Passing `profile: "ambient"` as a launch override
-points `PI_CODING_AGENT_DIR` at the host Pi profile instead — the caller's
-`PI_CODING_AGENT_DIR` when set, otherwise `~/.pi/agent` — so the launched Pi
-reads the host profile's providers, models, and credentials in place. Nothing
-is copied between profiles; OAuth refresh writes go to the host profile's own
-`auth.json`. `PI_CODING_AGENT_SESSION_DIR` stays app-isolated, so sessions
-still belong to the app. The generated runtime config under the app state
-directory is unused in ambient mode.
-
-Ambient launches usually pair with resource-disabling flags so host-profile
-extensions, skills, prompt templates, and themes do not leak into the app. Set
-them through the app definition's `forwardedArgs` and add back only the
-extensions the app needs through the manifest's `[[extensions]]`:
-
-```ts
-const ambientApp = {
-  ...app,
-  forwardedArgs: ["--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes"]
-};
-await createPiLaunchPlan(ambientApp, undefined, { profile: "ambient" });
-```
+The old broad `profile: "ambient"` override is removed. Use `[inherit]` to name the exact provider
+and package resources the app needs.
 
 ## More
 
 - [Specification](docs/spec.md)
 - [Manifest reference](docs/manifest-v1.md)
+- [Selective profile inheritance plan](docs/2026-08-21-selective-profile-inheritance-plan.md)
 
 ## License
 

@@ -4,12 +4,12 @@ import { mkdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve, sep } from "node:path";
 
+import { resolveInheritance, type ResolvedInheritance } from "./inherit.js";
 import { runtimeConfigPathsForApp, writePiRuntimeConfig } from "./runtime-config.js";
 import type {
   PiAppDefinition,
   PiLaunchOverrides,
   PiLaunchPlan,
-  PiProfile,
   PiRuntimeConfigPaths,
   PiRunMode
 } from "./types.js";
@@ -18,6 +18,7 @@ export function runtimeConfigPaths(app: PiAppDefinition): PiRuntimeConfigPaths {
   return runtimeConfigPathsForApp(app);
 }
 
+// eslint-disable-next-line complexity -- Keep the complete launch policy visible in one plan builder.
 export async function createPiLaunchPlan(
   app: PiAppDefinition,
   runtimeConfig: PiRuntimeConfigPaths = runtimeConfigPaths(app),
@@ -27,6 +28,21 @@ export async function createPiLaunchPlan(
   const warnings = managedPiEnvWarnings(app.env);
   const cwd = await launchCwd(app, overrides.cwd);
   const command = await resolveLaunchCommand(app);
+  const providerId = overrides.provider ?? app.defaultProvider;
+  const selectedProvider = app.providers.find((provider) => provider.id === providerId);
+  if (selectedProvider?.source === "pi" && app.inherit === undefined) {
+    throw new Error(`Pi provider ${providerId} requires explicit inheritance`);
+  }
+  const inheritance =
+    app.inherit === undefined
+      ? undefined
+      : await resolveInheritance({
+          app,
+          cwd: cwd ?? process.cwd(),
+          agentDir: ambientAgentDir(process.env),
+          providerId
+        });
+  validateLaunchInheritance(inheritance);
   return {
     appId: app.id,
     appName: app.name,
@@ -34,17 +50,18 @@ export async function createPiLaunchPlan(
     args: [
       ...command.args,
       "--provider",
-      overrides.provider ?? app.defaultProvider,
+      providerId,
       "--model",
       overrides.model ?? app.defaultModel,
       "--thinking",
       overrides.thinking ?? app.thinking,
+      ...inheritedResourceArgs(inheritance),
       ...extensionArgs(app),
       ...systemPromptArgs(app),
       ...withDefaultTools(app.forwardedArgs ?? [], app.tools),
       ...runtimeArgs(overrides)
     ],
-    env: launchEnv(app, runtimeConfig, appEnv, overrides.profile),
+    env: launchEnv(app, runtimeConfig, appEnv),
     ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
     warnings
@@ -222,6 +239,36 @@ function extensionArgs(app: PiAppDefinition): readonly string[] {
   return (app.extensions ?? []).flatMap((extension) => ["--extension", extension.path]);
 }
 
+function inheritedResourceArgs(inheritance: ResolvedInheritance | undefined): readonly string[] {
+  if (inheritance === undefined) return [];
+  const args = [
+    "--no-extensions",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-themes",
+    "--no-context-files",
+    "--no-approve"
+  ];
+  if (inheritance.providerModule !== undefined) {
+    args.push("--extension", inheritance.providerModule.modulePath);
+  }
+  for (const entry of inheritance.extensions) args.push("--extension", entry.path);
+  for (const entry of inheritance.skills) args.push("--skill", entry.path);
+  for (const entry of inheritance.promptTemplates) args.push("--prompt-template", entry.path);
+  for (const entry of inheritance.themes) args.push("--theme", entry.path);
+  return args;
+}
+
+function validateLaunchInheritance(inheritance: ResolvedInheritance | undefined): void {
+  if (inheritance?.providerModule === undefined) return;
+  const activation = resolve(inheritance.providerModule.activationExtensionPath);
+  if (inheritance.extensions.some((entry) => resolve(entry.path) === activation)) {
+    throw new Error(
+      `provider activation extension is also selected as an inherited extension: ${activation}`
+    );
+  }
+}
+
 function systemPromptArgs(app: PiAppDefinition): readonly string[] {
   const args: string[] = [];
   if (app.systemPrompt !== undefined) {
@@ -254,13 +301,12 @@ function hasToolFlag(args: readonly string[]): boolean {
 function launchEnv(
   app: PiAppDefinition,
   runtimeConfig: PiRuntimeConfigPaths,
-  appEnv: Readonly<Record<string, string>>,
-  profile: PiProfile = "isolated"
+  appEnv: Readonly<Record<string, string>>
 ): Readonly<Record<string, string>> {
   return {
     ...appEnv,
     PI_CODING_AGENT_DIR:
-      profile === "ambient" ? ambientAgentDir(process.env) : runtimeConfig.configDir,
+      app.inherit === undefined ? runtimeConfig.configDir : ambientAgentDir(process.env),
     PI_CODING_AGENT_SESSION_DIR: app.sessionDir,
     PI_OFFLINE: process.env["PI_OFFLINE"] ?? "1",
     PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",

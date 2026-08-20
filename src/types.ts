@@ -46,6 +46,19 @@ export type PiExtensionDefinition = {
   readonly appendSystemPrompt?: string;
 };
 
+export type PiInheritedPackageDefinition = {
+  readonly source: string;
+  readonly extensions?: readonly string[];
+  readonly skills?: readonly string[];
+  readonly promptTemplates?: readonly string[];
+  readonly themes?: readonly string[];
+};
+
+export type PiInheritanceDefinition = {
+  readonly providers: readonly string[];
+  readonly packages: readonly PiInheritedPackageDefinition[];
+};
+
 export type PiBuildCommand = {
   readonly command: readonly string[];
   readonly platforms?: readonly PiPlatform[];
@@ -70,6 +83,7 @@ export type PiAppDefinition = {
   readonly systemPrompt?: string;
   readonly appendSystemPrompts?: readonly string[];
   readonly extensions?: readonly PiExtensionDefinition[];
+  readonly inherit?: PiInheritanceDefinition;
   readonly env?: Readonly<Record<string, string>>;
   readonly forwardedArgs?: readonly string[];
   readonly build?: readonly PiBuildCommand[];
@@ -108,6 +122,16 @@ export type PiAppManifest = {
     readonly thinking_format?: PiThinkingFormat;
   };
   readonly env?: Readonly<Record<string, string>>;
+  readonly inherit?: {
+    readonly providers?: readonly string[];
+    readonly packages?: readonly {
+      readonly source: string;
+      readonly extensions?: readonly string[];
+      readonly skills?: readonly string[];
+      readonly prompt_templates?: readonly string[];
+      readonly themes?: readonly string[];
+    }[];
+  };
   readonly extensions?: readonly {
     readonly path: string;
     readonly append_system_prompt?: string;
@@ -125,12 +149,9 @@ export type PiRuntimeConfig = PiRuntimeConfigPaths;
 
 export type PiRunMode = "interactive" | "print" | "json" | "rpc";
 
-export type PiProfile = "isolated" | "ambient";
-
 export type PiLaunchOverrides = {
   readonly cwd?: string;
   readonly mode?: PiRunMode;
-  readonly profile?: PiProfile;
   readonly session?: string;
   readonly noSession?: boolean;
   readonly name?: string;
