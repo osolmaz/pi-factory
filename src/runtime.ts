@@ -167,7 +167,7 @@ function runtimeResult(
   let closed = false;
   // eslint-disable-next-line complexity -- Own one complete provider run and its guaranteed settlement.
   const run = async <T>(runId: string, operation: () => Promise<T>): Promise<T> => {
-    if (closed) throw new Error("Pi Factory runtime is closed");
+    if (closed) throw new Error("pi-factory runtime is closed");
     if (runId === "") throw new Error("run ID must not be empty");
     if (activeRun !== undefined) throw new Error(`provider run ${activeRun} is already active`);
     if (usedRunIds.has(runId)) throw new Error(`provider run ID was already used: ${runId}`);

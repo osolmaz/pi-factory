@@ -18,7 +18,7 @@ These instructions apply to this repository.
 
 ## Architecture
 
-- Pi Factory owns app bundle parsing, validation, config generation, app install/link state, and native Pi launch preparation.
+- pi-factory owns app bundle parsing, validation, config generation, app install/link state, and native Pi launch preparation.
 - Pi owns the runtime, TUI, sessions, model selector, command system, and extension SDK.
 - App-specific projects own their prompts, extensions, providers, model discovery, and local model server lifecycle.
 - Keep shared domain types in `src/types.ts`; avoid importing CLI modules from library modules.

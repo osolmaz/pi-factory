@@ -722,7 +722,7 @@ platforms = ["linux"]
     process.env["PI_FACTORY_STATE_DIR"] = stateDir;
     try {
       await writeFile(path.join(stateDir, "apps.json"), "{not json");
-      await expect(loadAppIndex()).rejects.toThrow("failed to load Pi Factory app index");
+      await expect(loadAppIndex()).rejects.toThrow("failed to load pi-factory app index");
     } finally {
       restoreEnv("PI_FACTORY_STATE_DIR", previous);
       await rm(stateDir, { recursive: true, force: true });

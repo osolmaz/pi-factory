@@ -18,7 +18,7 @@ export async function loadAppIndex(): Promise<readonly InstalledPiApp[]> {
       return [];
     }
     throw new Error(
-      `failed to load Pi Factory app index ${indexPath}: ${
+      `failed to load pi-factory app index ${indexPath}: ${
         error instanceof Error ? error.message : String(error)
       }`
     );
