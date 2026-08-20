@@ -1,15 +1,19 @@
 # pi-factory
 
-Pi Factory lets you develop and deploy isolated bundles of
+<p align="center">
+  <img src="assets/cover.svg" alt="pi-factory: a manifest goes in, an isolated standalone Pi app comes out" width="880">
+</p>
+
+pi-factory lets you develop and deploy isolated bundles of
 [Pi](https://pi.dev) for specific purposes.
 
 Use it when you want a named standalone Pi app with its own model/provider
 config, prompts, extensions, state directory, and session directory, while still
 using Pi's normal CLI, TUI, model picker, slash commands, and extension SDK.
 
-Pi Factory does not replace Pi and does not manage local model servers by
+pi-factory does not replace Pi and does not manage local model servers by
 default. App projects such as `localpi` decide how models are discovered or
-started; Pi Factory resolves the app bundle and launches Pi with the right
+started; pi-factory resolves the app bundle and launches Pi with the right
 config.
 
 ## Install
@@ -83,8 +87,8 @@ reasoning = true
 providers = ["openai-codex"]
 ```
 
-Pi Factory uses the selected provider implementation, models, and authentication from the user's
-main Pi profile. The app still selects its own provider and model, and Pi Factory does not write that
+pi-factory uses the selected provider implementation, models, and authentication from the user's
+main Pi profile. The app still selects its own provider and model, and pi-factory does not write that
 selection back to normal Pi. Credentials stay in their existing store.
 
 Package resources are also explicit:
@@ -98,7 +102,7 @@ prompt_templates = ["prompts/example.md"]
 themes = ["themes/example.json"]
 ```
 
-Missing lists inherit nothing. Pi Factory disables ambient resource and context discovery, then adds
+Missing lists inherit nothing. pi-factory disables ambient resource and context discovery, then adds
 only app-owned and selected paths.
 
 Add Pi extensions with normal Pi extension files:
@@ -191,7 +195,7 @@ import {
 } from "@osolmaz/pi-factory";
 ```
 
-Use the API when another launcher wants Pi Factory's app resolution and config generation but owns
+Use the API when another launcher wants pi-factory's app resolution and config generation but owns
 its own process. `createPiLaunchPlan` and `runPiApp` accept launch overrides for a target `cwd`, Pi
 run mode, provider, model, thinking level, ephemeral or named sessions, and initial messages.
 
