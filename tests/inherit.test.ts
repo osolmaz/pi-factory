@@ -137,6 +137,45 @@ providers = ["custom"]
     }
   });
 
+  it("inherits package resources for a custom provider without inheriting provider state", async () => {
+    const fixture = await createProfileFixture();
+    vi.stubEnv("PI_CODING_AGENT_DIR", fixture.agentDir);
+    const customApp: PiAppDefinition = {
+      ...fixture.app,
+      providers: [
+        {
+          id: "custom",
+          source: "custom",
+          baseUrl: "https://example.test/v1",
+          models: [{ id: modelId }]
+        }
+      ],
+      defaultProvider: "custom",
+      inherit: {
+        providers: [],
+        packages: fixture.app.inherit?.packages ?? []
+      }
+    };
+    try {
+      const resolved = await resolveInheritance({
+        app: customApp,
+        cwd: fixture.root,
+        agentDir: fixture.agentDir,
+        providerId: "custom"
+      });
+      expect(resolved.providerModule).toBeUndefined();
+      expect(resolved.skills.map((entry) => entry.path)).toEqual([fixture.skillPath]);
+
+      const plan = await createPiLaunchPlan(customApp);
+      expect(plan.env["PI_CODING_AGENT_DIR"]).toBe(plan.runtimeConfig.configDir);
+      expect(plan.args).toEqual(expect.arrayContaining(["--skill", fixture.skillPath]));
+      expect(plan.args).not.toContain(fixture.providerModulePath);
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
   it("keeps one provider run active through the complete operation", async () => {
     const fixture = await createProfileFixture();
     try {
@@ -362,10 +401,15 @@ providers = ["custom"]
       ).rejects.toThrow(`expected ${providerId}`);
 
       const invalidLifecycle = declaration("invalid-lifecycle");
-      await writeFile(invalidLifecycle.modulePath, invalidLifecycleModuleSource());
+      const invalidLifecycleEvents = path.join(root, "invalid-lifecycle-events.txt");
+      await writeFile(
+        invalidLifecycle.modulePath,
+        invalidLifecycleModuleSource(invalidLifecycleEvents)
+      );
       await expect(
         createDeclaredProvider({ declaration: invalidLifecycle, agentDir: root })
       ).rejects.toThrow("startRun must be a function");
+      expect(await readFile(invalidLifecycleEvents, "utf8")).toBe("close\n");
 
       const valid = declaration("valid");
       const eventsPath = path.join(root, "valid-events.txt");
@@ -559,13 +603,15 @@ export function createProvider() {
 `;
 }
 
-function invalidLifecycleModuleSource(): string {
+function invalidLifecycleModuleSource(eventsPath: string): string {
   return `
+import { appendFile } from "node:fs/promises";
 export const version = 1;
 export function createProvider() {
   return {
     provider: { id: ${JSON.stringify(providerId)}, stream() {}, streamSimple() {} },
-    startRun: 1
+    startRun: 1,
+    close: async () => appendFile(${JSON.stringify(eventsPath)}, "close\\n")
   };
 }
 `;

@@ -42,6 +42,7 @@ export async function createPiLaunchPlan(
           agentDir: ambientAgentDir(process.env),
           providerId
         });
+  const providerInherited = app.inherit?.providers.includes(providerId) ?? false;
   validateLaunchInheritance(inheritance);
   return {
     appId: app.id,
@@ -61,7 +62,7 @@ export async function createPiLaunchPlan(
       ...withDefaultTools(app.forwardedArgs ?? [], app.tools),
       ...runtimeArgs(overrides)
     ],
-    env: launchEnv(app, runtimeConfig, appEnv),
+    env: launchEnv(app, runtimeConfig, appEnv, providerInherited),
     ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
     warnings
@@ -83,7 +84,12 @@ export async function createPiCommandPlan(
     appName: app.name,
     command: command.program,
     args: [...command.args, ...piArgs],
-    env: launchEnv(app, runtimeConfig, appEnv),
+    env: launchEnv(
+      app,
+      runtimeConfig,
+      appEnv,
+      app.inherit?.providers.includes(app.defaultProvider) ?? false
+    ),
     ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
     warnings
@@ -301,12 +307,12 @@ function hasToolFlag(args: readonly string[]): boolean {
 function launchEnv(
   app: PiAppDefinition,
   runtimeConfig: PiRuntimeConfigPaths,
-  appEnv: Readonly<Record<string, string>>
+  appEnv: Readonly<Record<string, string>>,
+  providerInherited: boolean
 ): Readonly<Record<string, string>> {
   return {
     ...appEnv,
-    PI_CODING_AGENT_DIR:
-      app.inherit === undefined ? runtimeConfig.configDir : ambientAgentDir(process.env),
+    PI_CODING_AGENT_DIR: providerInherited ? ambientAgentDir(process.env) : runtimeConfig.configDir,
     PI_CODING_AGENT_SESSION_DIR: app.sessionDir,
     PI_OFFLINE: process.env["PI_OFFLINE"] ?? "1",
     PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",

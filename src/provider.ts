@@ -85,24 +85,33 @@ export async function createDeclaredProvider(input: {
     ...(input.nativeProvider === undefined ? {} : { nativeProvider: input.nativeProvider }),
     ...(input.signal === undefined ? {} : { signal: input.signal })
   });
+  return await validateCreatedProvider(created, input.declaration);
+}
+
+async function validateCreatedProvider(
+  created: CreatedPiFactoryProvider,
+  declaration: ResolvedProviderModule
+): Promise<CreatedPiFactoryProvider> {
   if (!isRecord(created) || !isProvider(created["provider"])) {
-    throw new Error(
-      `provider module returned an invalid provider: ${input.declaration.modulePath}`
-    );
+    throw new Error(`provider module returned an invalid provider: ${declaration.modulePath}`);
   }
   const provider = created["provider"];
-  if (provider.id !== input.declaration.providerId) {
-    if (typeof created["close"] === "function") await created["close"]();
-    throw new Error(
-      `provider module returned ${provider.id}; expected ${input.declaration.providerId}`
-    );
+  const close = typeof created["close"] === "function" ? created["close"] : undefined;
+  if (provider.id !== declaration.providerId) {
+    await close?.();
+    throw new Error(`provider module returned ${provider.id}; expected ${declaration.providerId}`);
   }
-  return {
-    provider,
-    ...optionalFunction(created, "startRun"),
-    ...optionalFunction(created, "finishRun"),
-    ...optionalFunction(created, "close")
-  };
+  try {
+    return {
+      provider,
+      ...optionalFunction(created, "startRun"),
+      ...optionalFunction(created, "finishRun"),
+      ...optionalFunction(created, "close")
+    };
+  } catch (error) {
+    await close?.();
+    throw error;
+  }
 }
 
 // eslint-disable-next-line complexity -- Validate one bounded external package manifest completely.
