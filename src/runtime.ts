@@ -181,6 +181,7 @@ function runtimeResult(
       status = signal?.aborted === true ? "cancelled" : "error";
       throw error;
     } finally {
+      if (status === "success" && signal?.aborted === true) status = "cancelled";
       try {
         await provider?.finishRun?.(runId, status);
       } finally {

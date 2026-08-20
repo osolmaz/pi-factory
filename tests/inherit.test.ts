@@ -6,7 +6,7 @@ import { createEventBus, SettingsManager } from "@earendil-works/pi-coding-agent
 import { describe, expect, it, vi } from "vitest";
 
 import { resolveInheritance } from "../src/inherit.js";
-import { createPiLaunchPlan } from "../src/launch.js";
+import { createPiCommandPlan, createPiLaunchPlan } from "../src/launch.js";
 import { parsePiAppManifest, manifestToDefinition } from "../src/manifest.js";
 import { createDeclaredProvider, type ResolvedProviderModule } from "../src/provider.js";
 import { createPiFactoryRuntime } from "../src/runtime.js";
@@ -91,6 +91,13 @@ providers = ["custom"]
   it("resolves only selected enabled package resources and one provider module", async () => {
     const fixture = await createProfileFixture();
     try {
+      const settingsPath = path.join(fixture.agentDir, "settings.json");
+      const settings = JSON.parse(await readFile(settingsPath, "utf8")) as {
+        packages: { source: string }[];
+      };
+      settings.packages.push({ source: "definitely-missing-pi-factory-package@0.0.0" });
+      await writeFile(settingsPath, `${JSON.stringify(settings)}\n`);
+
       const resolved = await resolveInheritance({
         app: fixture.app,
         cwd: fixture.root,
@@ -131,6 +138,19 @@ providers = ["custom"]
         ])
       );
       expect(plan.args).not.toContain(fixture.unselectedExtensionPath);
+
+      const commandPlan = await createPiCommandPlan(fixture.app, ["models"]);
+      expect(commandPlan.env["PI_CODING_AGENT_DIR"]).toBe(fixture.agentDir);
+      expect(commandPlan.args).toEqual(
+        expect.arrayContaining([
+          "--no-extensions",
+          "--no-context-files",
+          "--extension",
+          fixture.providerModulePath,
+          "models"
+        ])
+      );
+      expect(commandPlan.args).not.toContain(fixture.unselectedExtensionPath);
     } finally {
       vi.unstubAllEnvs();
       await rm(fixture.root, { recursive: true, force: true });
@@ -336,10 +356,13 @@ providers = ["custom"]
           throw new Error("cancelled");
         })
       ).rejects.toThrow("cancelled");
+      await expect(runtime.run("handled-cancellation", async () => "done")).resolves.toBe("done");
       await runtime.close();
       expect((await readFile(cancelled.eventsPath, "utf8")).trim().split("\n")).toEqual([
         "start:cancelled",
         "finish:cancelled:cancelled",
+        "start:handled-cancellation",
+        "finish:handled-cancellation:cancelled",
         "close"
       ]);
     } finally {
