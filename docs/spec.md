@@ -32,6 +32,10 @@ mechanisms Pi already supports.
 - Preserve Pi's extension SDK as the only extension mechanism.
 - Make standalone Pi apps reproducible, testable, and easy to package.
 - Keep product-specific behavior outside the shared launcher layer.
+- Let apps select providers, extensions, skills, prompt templates, and themes from the user's main
+  Pi profile.
+- Deny all unselected profile resources by default.
+- Let SDK apps use the same selected provider and resource rules as normal Pi launches.
 
 ## Non-Goals
 
@@ -43,6 +47,8 @@ mechanisms Pi already supports.
 - Do not merge applications such as `localpi` and `localpager-agent` into one
   product.
 - Do not turn app manifests into arbitrary code execution.
+- Do not copy credentials, sessions, context files, or application policy between profiles.
+- Do not load all ambient extensions to discover one provider.
 - Do not maintain a central app registry or hardcoded alias list. Install
   arguments are source locators, and app names come from manifests.
 
@@ -94,6 +100,27 @@ arguments such as:
 ```
 
 Extension packs are only a packaging and naming convention.
+
+### Selective Inheritance
+
+Selective inheritance lets an app use named resources from the user's main Pi profile. The manifest
+selects provider IDs and enabled package resources. A missing selection inherits nothing.
+
+Models follow the selected provider. Credentials stay in the main profile's canonical store or the
+provider's existing store. Sessions, prompts, tools, commands, context files, repository policy, and
+application lifecycle stay with the app.
+
+Pi Factory uses Pi's package manager and resource loader to resolve exact enabled paths without
+executing unrelated extensions. It disables ambient resource discovery and adds selected paths
+through Pi's explicit resource interfaces.
+
+Pi does not yet expose providers as a package resource. Until it does, an enabled package can declare
+one provider module under `piFactory.providers`. Pi Factory imports only the unique selected module,
+registers its complete provider before model and authentication checks, and treats module failure as
+final.
+
+See the [selective Pi profile inheritance plan](2026-08-21-selective-profile-inheritance-plan.md)
+for the full contract and rollout.
 
 ### Runtime Config
 
@@ -182,7 +209,10 @@ id = "gpt-5.6-terra"
 reasoning = true
 ```
 
-Pi Factory omits catalog providers from generated `models.json`. The app's isolated profile owns authentication.
+Pi Factory omits catalog providers from generated `models.json`. A Pi provider must also appear in
+`inherit.providers`. Pi Factory uses the main profile's provider implementation, model data, and
+authentication in place. The app selects its own provider and model without changing normal Pi's
+selection.
 
 ## Install and Link
 
@@ -244,14 +274,16 @@ Resolution turns a manifest into a launch plan.
 Resolution steps:
 
 1. Load the manifest.
-2. Validate required fields.
+2. Validate required fields and the explicit inheritance selection.
 3. Expand `~`, environment variables, and relative paths.
-4. Resolve extension packs into Pi extension arguments.
-5. Resolve prompt files into `--system-prompt` or `--append-system-prompt`
-   arguments.
-6. Generate Pi runtime config files.
-7. Build the native Pi command, args, and environment.
-8. Return an inspectable launch plan.
+4. Resolve selected user-profile packages with project trust disabled.
+5. Resolve exact enabled extension, skill, prompt template, and theme paths without executing them.
+6. Resolve one enabled provider declaration when the selected provider overrides a built-in
+   provider.
+7. Resolve app extension packs and prompt files.
+8. Generate Pi runtime config files for custom providers.
+9. Build the native Pi command, args, environment, and explicit resource flags.
+10. Return an inspectable launch plan or SDK runtime.
 
 Resolution must be deterministic. The same manifest and environment should
 produce the same launch plan.
@@ -307,7 +339,16 @@ npx -y @earendil-works/pi-coding-agent@latest \
 Interactive launches should preserve Pi's native TUI.
 
 Print or structured modes may add Pi flags, but must still use Pi's existing
-CLI behavior. Library callers may override provider, model, thinking level, and session behavior for one launch. Native Pi commands such as authentication and model listing use the generated app profile through command plans.
+CLI behavior. Library callers may override provider, model, thinking level, and session behavior for
+one launch. An override changes only that app run and never writes normal Pi's selected model.
+
+Selective launches disable ambient extensions, skills, prompt templates, themes, context files, and
+project approval. They add only app-owned paths and explicitly selected inherited paths. The broad
+`profile: ambient` launch option is removed as an inheritance path and is not a fallback.
+
+Native Pi commands for built-in providers use the selected main-profile provider state. A provider
+module that owns authentication may require account management in normal Pi instead of creating a
+single fallback credential.
 
 ## API Shape
 
@@ -389,6 +430,11 @@ The implementation should deliver:
 - Extension pack resolution to native Pi `--extension`, `--system-prompt`, and
   `--append-system-prompt` arguments.
 - Generated Pi runtime config for `models.json` and `settings.json`.
+- Explicit, deny-by-default selection of main-profile providers and package resources.
+- Bounded package resolution through Pi's public package manager.
+- Versioned provider declarations and safe provider-module loading until Pi supplies that resource.
+- An SDK runtime that creates `ModelRuntime` and `DefaultResourceLoader` with the same selection.
+- One high-level run lifetime across model turns, tools, retries, compaction, and finalization.
 - Inspectable launch plans that include command, args, env, cwd, generated
   files, selected app, and warnings.
 - Native Pi process launching with inherited stdio, signal forwarding, and no
@@ -466,9 +512,5 @@ real model providers.
   manifests?
 - Should `systemPrompt` accept arrays, or should only `appendSystemPrompt` be
   repeatable?
-- Should provider/model discovery remain app-specific, or should Pi Factory
-  define provider discovery hooks later?
-- Should app bundles support inheritance, or should composition happen through
-  extension packs only?
 - Should managed installs support npm package specs later, or should v1 stay
   GitHub-directory only like Herdr plugin install?

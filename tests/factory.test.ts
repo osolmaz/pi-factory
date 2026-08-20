@@ -8,6 +8,7 @@ import { run } from "../src/cli/cli.js";
 import { initPiApp } from "../src/init.js";
 import { installPiApp, parseGithubSource } from "../src/install.js";
 import {
+  ambientAgentDir,
   createPiCommandPlan,
   createPiLaunchPlan,
   execPiLaunchPlan,
@@ -77,32 +78,16 @@ describe("pi-factory", () => {
     expect(plan.warnings).toContain("ignored managed env PI_CODING_AGENT_DIR");
   });
 
-  it("points the ambient profile at the host Pi agent dir", async () => {
-    const app = {
-      id: "ambient-agent",
-      name: "Ambient Agent",
-      stateDir: "/tmp/pi-factory-state",
-      sessionDir: "/tmp/pi-factory-sessions",
-      piCommand: ["true"],
-      providers: [{ id: "huggingface", source: "pi" as const, models: [{ id: "model-a" }] }],
-      defaultProvider: "huggingface",
-      defaultModel: "model-a",
-      thinking: "medium" as const
-    };
-    const isolated = await createPiLaunchPlan(app);
-    expect(isolated.env["PI_CODING_AGENT_DIR"]).toContain("pi-config-runtime");
+  it("resolves the main Pi agent directory without a launch profile override", () => {
     vi.stubEnv("PI_CODING_AGENT_DIR", "/tmp/host-pi-agent");
     try {
-      const ambient = await createPiLaunchPlan(app, undefined, { profile: "ambient" });
-      expect(ambient.env["PI_CODING_AGENT_DIR"]).toBe("/tmp/host-pi-agent");
-      expect(ambient.env["PI_CODING_AGENT_SESSION_DIR"]).toBe("/tmp/pi-factory-sessions");
+      expect(ambientAgentDir(process.env)).toBe("/tmp/host-pi-agent");
     } finally {
       vi.unstubAllEnvs();
     }
     vi.stubEnv("PI_CODING_AGENT_DIR", undefined);
     try {
-      const ambient = await createPiLaunchPlan(app, undefined, { profile: "ambient" });
-      expect(ambient.env["PI_CODING_AGENT_DIR"]).toBe(path.join(os.homedir(), ".pi", "agent"));
+      expect(ambientAgentDir(process.env)).toBe(path.join(os.homedir(), ".pi", "agent"));
     } finally {
       vi.unstubAllEnvs();
     }
@@ -167,6 +152,9 @@ source = "pi"
 [model]
 id = "gpt-review"
 reasoning = true
+
+[inherit]
+providers = ["openai-codex"]
 `);
       const app = await manifestToDefinition(manifest, stateDir);
       expect(app.providers[0]).toMatchObject({ id: "openai-codex", source: "pi" });

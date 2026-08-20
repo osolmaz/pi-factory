@@ -52,6 +52,9 @@ type ModelManifestFields = PiAppManifest["model"];
 
 type CollectionManifestFields = Pick<PiAppManifest, "extensions" | "build">;
 
+type InheritanceManifestFields = PiAppManifest["inherit"];
+type InheritedPackages = NonNullable<NonNullable<InheritanceManifestFields>["packages"]>;
+
 export async function loadPiApp(input: LoadPiAppInput): Promise<{
   readonly manifest: PiAppManifest;
   readonly manifestPath: string;
@@ -80,7 +83,9 @@ export function validatePiAppManifest(value: unknown, source = "pi-factory.toml"
   const topLevel = readTopLevelFields(value, errors);
   const provider = readProviderFields(value, errors);
   const model = readModelFields(value, errors);
+  const inherit = readInheritanceFields(value, errors);
   const collections = readCollectionFields(value, errors);
+  validateProviderInheritance(provider, inherit, errors);
 
   if (errors.length > 0) {
     throw new Error(
@@ -92,6 +97,7 @@ export function validatePiAppManifest(value: unknown, source = "pi-factory.toml"
     ...topLevel,
     provider,
     model,
+    ...(inherit === undefined ? {} : { inherit }),
     ...collections
   };
 }
@@ -225,6 +231,87 @@ function thinkingFormatField(
   return thinkingFormat;
 }
 
+function readInheritanceFields(
+  value: Record<string, unknown>,
+  errors: string[]
+): InheritanceManifestFields | undefined {
+  const entry = value["inherit"];
+  if (entry === undefined) return undefined;
+  if (!isRecord(entry)) {
+    errors.push("inherit must be a table");
+    return undefined;
+  }
+  const providers = stringArrayField(entry, "providers", false, errors) ?? [];
+  validateUniqueNonempty(providers, "inherit.providers", errors);
+  const packagesEntry = entry["packages"];
+  const packages = packagesEntry === undefined ? [] : inheritedPackages(packagesEntry, errors);
+  const sources = packages.map((item) => item.source);
+  if (new Set(sources).size !== sources.length) {
+    errors.push("inherit.packages sources must be unique");
+  }
+  return { providers, packages };
+}
+
+function inheritedPackages(value: unknown, errors: string[]): InheritedPackages {
+  if (!Array.isArray(value)) {
+    errors.push("inherit.packages must be an array of tables");
+    return [];
+  }
+  // eslint-disable-next-line complexity -- Validate each optional package resource list together.
+  return value.flatMap((entry, index) => {
+    if (!isRecord(entry)) {
+      errors.push(`inherit.packages[${String(index)}] must be a table`);
+      return [];
+    }
+    const source = stringField(entry, "source", errors);
+    const fields = {
+      extensions: stringArrayField(entry, "extensions", false, errors),
+      skills: stringArrayField(entry, "skills", false, errors),
+      prompt_templates: stringArrayField(entry, "prompt_templates", false, errors),
+      themes: stringArrayField(entry, "themes", false, errors)
+    };
+    for (const [name, patterns] of Object.entries(fields)) {
+      if (patterns !== undefined) {
+        validateUniqueNonempty(patterns, `inherit.packages[${String(index)}].${name}`, errors);
+      }
+    }
+    if (source === undefined || source === "") {
+      if (source === "") errors.push(`inherit.packages[${String(index)}].source must not be empty`);
+      return [];
+    }
+    return [
+      {
+        source,
+        ...(fields.extensions === undefined ? {} : { extensions: fields.extensions }),
+        ...(fields.skills === undefined ? {} : { skills: fields.skills }),
+        ...(fields.prompt_templates === undefined
+          ? {}
+          : { prompt_templates: fields.prompt_templates }),
+        ...(fields.themes === undefined ? {} : { themes: fields.themes })
+      }
+    ];
+  });
+}
+
+function validateUniqueNonempty(values: readonly string[], field: string, errors: string[]): void {
+  if (values.some((value) => value === "")) errors.push(`${field} must not contain empty strings`);
+  if (new Set(values).size !== values.length) errors.push(`${field} must contain unique values`);
+}
+
+function validateProviderInheritance(
+  provider: ProviderManifestFields,
+  inherit: InheritanceManifestFields | undefined,
+  errors: string[]
+): void {
+  const providers = inherit?.providers ?? [];
+  if (provider.source === "pi" && !providers.includes(provider.id)) {
+    errors.push(`inherit.providers must include Pi provider ${provider.id}`);
+  }
+  if (provider.source !== "pi" && providers.includes(provider.id)) {
+    errors.push(`inherit.providers must not include custom provider ${provider.id}`);
+  }
+}
+
 function readCollectionFields(
   value: Record<string, unknown>,
   errors: string[]
@@ -247,6 +334,7 @@ function assignDefined<T extends object, K extends keyof T>(
   }
 }
 
+// eslint-disable-next-line complexity -- Keep manifest-to-definition field mapping in one boundary.
 export async function manifestToDefinition(
   manifest: PiAppManifest,
   appRoot: string
@@ -269,6 +357,20 @@ export async function manifestToDefinition(
   assignDefined(app, "systemPrompt", await systemPromptText(manifest, appRoot));
   assignDefined(app, "env", manifest.env);
   assignDefined(app, "build", manifest.build);
+  if (manifest.inherit !== undefined) {
+    assignDefined(app, "inherit", {
+      providers: manifest.inherit.providers ?? [],
+      packages: (manifest.inherit.packages ?? []).map((entry) => ({
+        source: entry.source,
+        ...(entry.extensions === undefined ? {} : { extensions: entry.extensions }),
+        ...(entry.skills === undefined ? {} : { skills: entry.skills }),
+        ...(entry.prompt_templates === undefined
+          ? {}
+          : { promptTemplates: entry.prompt_templates }),
+        ...(entry.themes === undefined ? {} : { themes: entry.themes })
+      }))
+    });
+  }
   const extensions = await extensionDefinitions(manifest, appRoot);
   assignDefined(app, "extensions", extensions.length === 0 ? undefined : extensions);
   return app as PiAppDefinition;
