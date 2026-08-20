@@ -34,8 +34,16 @@ export async function resolveInheritance(input: {
 }): Promise<ResolvedInheritance> {
   input.signal?.throwIfAborted();
   const inherit = input.app.inherit;
-  if (inherit === undefined || !inherit.providers.includes(input.providerId)) {
+  if (inherit === undefined) {
     throw new Error(`provider ${input.providerId} is not selected in inherit.providers`);
+  }
+  const selectedProvider = input.app.providers.find((provider) => provider.id === input.providerId);
+  const providerInherited = inherit.providers.includes(input.providerId);
+  if (selectedProvider?.source === "pi" && !providerInherited) {
+    throw new Error(`provider ${input.providerId} is not selected in inherit.providers`);
+  }
+  if (selectedProvider?.source !== "pi" && providerInherited) {
+    throw new Error(`custom provider ${input.providerId} must not be inherited`);
   }
   const settingsManager = SettingsManager.create(input.cwd, input.agentDir, {
     projectTrusted: false
@@ -75,11 +83,13 @@ export async function resolveInheritance(input: {
     selected.themes.push(...selectResources(packageSelection, "themes", resolved.themes, root));
   }
 
-  const providerModule = await resolveProviderModule({
-    providerId: input.providerId,
-    packageManager,
-    resolvedPaths: resolved
-  });
+  const providerModule = providerInherited
+    ? await resolveProviderModule({
+        providerId: input.providerId,
+        packageManager,
+        resolvedPaths: resolved
+      })
+    : undefined;
   return {
     extensions: uniqueResources(selected.extensions),
     skills: uniqueResources(selected.skills),
