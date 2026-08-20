@@ -9,7 +9,7 @@ tags: [pi, profiles, providers, packages]
 
 ## Goal
 
-Let a Pi Factory app use selected resources from the user's main Pi profile while all other profile
+Let a pi-factory app use selected resources from the user's main Pi profile while all other profile
 resources stay isolated. Selection is explicit and denies everything else by default.
 
 Pi Reviewer is the first user. It must use the main profile's `openai-codex` provider implementation,
@@ -24,7 +24,7 @@ This plan covers three repositories:
 
 ## Selected design
 
-Pi Factory adds one `inherit` section to manifest version 1. The app selects providers by provider ID
+pi-factory adds one `inherit` section to manifest version 1. The app selects providers by provider ID
 and package resources by the package source and Pi resource filters.
 
 ```toml
@@ -46,26 +46,26 @@ A missing list selects nothing. Credentials and sessions are not entries in `inh
 - Credentials stay in the main profile's `auth.json` or the provider's existing store.
 - Sessions, application prompts, tools, commands, policy, and lifecycle stay with the app.
 
-Pi Factory uses Pi's public `SettingsManager`, `DefaultPackageManager`, `DefaultResourceLoader`,
+pi-factory uses Pi's public `SettingsManager`, `DefaultPackageManager`, `DefaultResourceLoader`,
 `ModelRuntime`, provider registration, and explicit resource flags.
 
 ## Resource selection
 
-Pi Factory reads configured user packages from the main profile with project trust disabled. It does
+pi-factory reads configured user packages from the main profile with project trust disabled. It does
 not install or repair a missing package while resolving inheritance.
 
-Each package selection uses the exact source string from Pi settings. Pi Factory applies Pi's
+Each package selection uses the exact source string from Pi settings. pi-factory applies Pi's
 resource filters and returns only enabled paths that match the request. A missing, disabled,
 duplicate, or ambiguous selection is an error.
 
-Package resolution reads metadata. It does not execute extension code. Pi Factory loads executable
+Package resolution reads metadata. It does not execute extension code. pi-factory loads executable
 code only after it has selected an exact extension or provider module.
 
 For SDK apps, `DefaultResourceLoader` uses the app's agent directory. Automatic ambient discovery and
 context-file loading stay disabled. Selected package paths are passed as additional extension, skill,
 prompt template, or theme paths.
 
-For normal Pi launches, Pi Factory passes these flags before adding exact selected paths:
+For normal Pi launches, pi-factory passes these flags before adding exact selected paths:
 
 ```text
 --no-extensions
@@ -83,7 +83,7 @@ The broad `profile: ambient` option is removed as an inheritance path. It is not
 
 ## Provider declaration
 
-Pi does not yet expose providers as a package resource. Pi Factory therefore defines one small,
+Pi does not yet expose providers as a package resource. pi-factory therefore defines one small,
 versioned package declaration until Pi provides that public feature.
 
 ```json
@@ -108,17 +108,17 @@ The declaration names:
 - the provider module;
 - the normal Pi extension whose enabled state activates the provider.
 
-Pi Factory reads bounded `package.json` files from packages already configured in the user profile.
+pi-factory reads bounded `package.json` files from packages already configured in the user profile.
 It checks that the activation extension is enabled, resolves real paths inside the installed package
 root, and requires one matching provider declaration.
 
-A provider with no enabled package declaration uses Pi's built-in provider. If Pi Factory selects an
+A provider with no enabled package declaration uses Pi's built-in provider. If pi-factory selects an
 enabled declaration and its module fails to load or construct the provider, the error is final. Pi
 Factory does not retry with the built-in provider. Duplicate enabled declarations are errors.
 
 ## Provider module
 
-A provider module exports contract version 1 and a `createProvider` function. Pi Factory gives it:
+A provider module exports contract version 1 and a `createProvider` function. pi-factory gives it:
 
 - the selected provider ID;
 - the main agent directory;
@@ -141,7 +141,7 @@ extension can add user commands separately.
 
 ## SDK runtime
 
-Pi Factory adds a public runtime API that accepts:
+pi-factory adds a public runtime API that accepts:
 
 - the app definition;
 - the main and app agent directories;
@@ -160,7 +160,7 @@ The runtime creation order is fixed:
 6. Check authentication.
 7. Create the app-owned `DefaultResourceLoader` with only app and selected package paths.
 
-Pi Factory never writes the main profile's selected provider or model. A Pi Reviewer override changes
+pi-factory never writes the main profile's selected provider or model. A Pi Reviewer override changes
 only that review process.
 
 ## Run lifetime
@@ -192,14 +192,14 @@ The Codex switcher moves provider construction into shared code. The shared code
 The normal Pi extension becomes a thin adapter. It registers the shared provider, maps documented Pi
 lifecycle events, and keeps `/codex-switcher` account management.
 
-The Pi Factory provider module becomes another thin adapter. It exports `createProvider` and a
+The pi-factory provider module becomes another thin adapter. It exports `createProvider` and a
 provider-only Pi extension. It does not add `/codex-switcher` or any unrelated resource.
 
 The change does not migrate or rewrite configuration or credentials.
 
 ## Pi Reviewer changes
 
-Pi Reviewer replaces direct source-Pi `ModelRuntime` construction with the Pi Factory runtime.
+Pi Reviewer replaces direct source-Pi `ModelRuntime` construction with the pi-factory runtime.
 Inherited worker requests contain only:
 
 - the main agent directory;
@@ -214,7 +214,7 @@ Pi Reviewer selects `openai-codex` and its configured model. It selects no inher
 resources. Its review extension, prompt, tools, settings, session manager, repository policy,
 receipts, finalization, and submission gate stay isolated.
 
-The complete three-phase review runs inside one Pi Factory `run` operation. This includes exploration,
+The complete three-phase review runs inside one pi-factory `run` operation. This includes exploration,
 tool calls, retries, compaction, soft finalization, hard finalization, forced submission turns, and
 automatic continuations.
 
@@ -242,15 +242,15 @@ A selected provider module never falls back to another implementation after fail
 ## Security boundary
 
 Selected provider and extension code is trusted executable code in the app process. Resource
-selection limits what Pi Factory loads. It is not an operating-system sandbox.
+selection limits what pi-factory loads. It is not an operating-system sandbox.
 
-Pi Factory and Pi Reviewer do not copy, serialize, return, log, or mirror credentials. They do not
+pi-factory and Pi Reviewer do not copy, serialize, return, log, or mirror credentials. They do not
 create a proxy, service, temporary auth file, temporary home directory, wrapper retry, provider alias,
 or compatibility reader.
 
 ## Implementation order
 
-1. Update Pi Factory manifest version 1, package resolution, provider loading, SDK runtime, launch
+1. Update pi-factory manifest version 1, package resolution, provider loading, SDK runtime, launch
    planning, lifecycle handling, documentation, and tests.
 2. Release the existing `@osolmaz/pi-factory` package.
 3. Refactor the OnurPi Codex switcher, add its provider declaration and module, run checks, and sync
@@ -263,7 +263,7 @@ or compatibility reader.
 
 ## Verification
 
-Pi Factory tests must cover:
+pi-factory tests must cover:
 
 - manifest parsing and hard replacement of broad ambient inheritance;
 - exact package and resource matching;
@@ -278,7 +278,7 @@ Pi Factory tests must cover:
 
 OnurPi tests must cover:
 
-- equal provider behavior through normal Pi and Pi Factory adapters;
+- equal provider behavior through normal Pi and pi-factory adapters;
 - account order, billing policy, usage checks, OAuth refresh, and vault locking;
 - pre-output fallback and post-output account selection;
 - tools, retries, compaction, cancellation, reset recovery, and concurrent instances;
@@ -313,5 +313,5 @@ This work does not:
 - keep the old inheritance path as a fallback.
 
 The long-term replacement belongs in Pi. Pi can later add providers as a first-class package resource
-and give providers one stable high-level run lifetime. Pi Factory must remove its temporary provider
+and give providers one stable high-level run lifetime. pi-factory must remove its temporary provider
 declaration and run wrapper when that public support exists. The two paths must not remain together.

@@ -1,11 +1,11 @@
-# Pi Factory Specification
+# pi-factory Specification
 
 Status: draft
 Date: 2026-06-24
 
 ## Purpose
 
-Pi Factory defines a small convention for building standalone applications on top
+pi-factory defines a small convention for building standalone applications on top
 of Pi.
 
 The core idea:
@@ -14,7 +14,7 @@ The core idea:
 Pi app directory -> pi-factory.toml -> resolved bundle -> generated Pi config -> native Pi launch
 ```
 
-Pi Factory should make it easy to say "launch the `localpager` Pi app" and have
+pi-factory should make it easy to say "launch the `localpager` Pi app" and have
 the right model, provider, config directory, extensions, prompts, tools, and
 session directory resolved automatically.
 
@@ -110,12 +110,12 @@ Models follow the selected provider. Credentials stay in the main profile's cano
 provider's existing store. Sessions, prompts, tools, commands, context files, repository policy, and
 application lifecycle stay with the app.
 
-Pi Factory uses Pi's package manager and resource loader to resolve exact enabled paths without
+pi-factory uses Pi's package manager and resource loader to resolve exact enabled paths without
 executing unrelated extensions. It disables ambient resource discovery and adds selected paths
 through Pi's explicit resource interfaces.
 
 Pi does not yet expose providers as a package resource. Until it does, an enabled package can declare
-one provider module under `piFactory.providers`. Pi Factory imports only the unique selected module,
+one provider module under `piFactory.providers`. pi-factory imports only the unique selected module,
 registers its complete provider before model and authentication checks, and treats module failure as
 final.
 
@@ -209,14 +209,14 @@ id = "gpt-5.6-terra"
 reasoning = true
 ```
 
-Pi Factory omits catalog providers from generated `models.json`. A Pi provider must also appear in
-`inherit.providers`. Pi Factory uses the main profile's provider implementation, model data, and
+pi-factory omits catalog providers from generated `models.json`. A Pi provider must also appear in
+`inherit.providers`. pi-factory uses the main profile's provider implementation, model data, and
 authentication in place. The app selects its own provider and model without changing normal Pi's
 selection.
 
 ## Install and Link
 
-Pi Factory should use a Herdr-style source model.
+pi-factory should use a Herdr-style source model.
 
 For local development:
 
@@ -233,12 +233,12 @@ pi-factory install owner/repo[/subdir...] [--ref REF] [--yes]
 `install` accepts a source locator, not an app alias. It clones the GitHub
 source, finds `pi-factory.toml` at the selected root, previews the app in
 interactive terminals, runs supported build commands, copies the checkout into
-Pi Factory-managed app storage, and registers the app from its manifest id.
+pi-factory-managed app storage, and registers the app from its manifest id.
 
 There is no central registry. `localpi` is recognized only if a linked or
 installed app bundle declares `id = "localpi"`.
 
-Pi Factory should persist a local installed-app index containing:
+pi-factory should persist a local installed-app index containing:
 
 - app id
 - name
@@ -257,7 +257,7 @@ unlink it.
 
 ## Discovery
 
-Pi Factory should search for app bundles in deterministic order:
+pi-factory should search for app bundles in deterministic order:
 
 1. Explicit `--app-file <path>` or `--app-dir <path>`.
 2. Project-local `.pi/apps/<app-id>/pi-factory.toml`.
@@ -317,7 +317,7 @@ PI_CODING_AGENT_DIR=~/.local/state/localpager/pi-config-runtime
 
 ## Launching
 
-Pi Factory launches the real Pi command. It should not emulate Pi behavior.
+pi-factory launches the real Pi command. It should not emulate Pi behavior.
 
 Example resolved command:
 
@@ -406,7 +406,7 @@ Pi print mode.
 
 ## Implementation Plan
 
-Build Pi Factory as one coherent end-to-end implementation, not as staged MVP
+Build pi-factory as one coherent end-to-end implementation, not as staged MVP
 phases. The first complete implementation should include the core library, CLI,
 manifest schema, examples, and tests together so the conventions are proven as a
 working standalone Pi app system.
@@ -465,7 +465,7 @@ configuration.
 
 The implementation should keep the boundary strict:
 
-- Pi Factory owns app bundle resolution and launch preparation.
+- pi-factory owns app bundle resolution and launch preparation.
 - Pi owns the runtime, TUI, command system, model selector, session behavior, and
   extension SDK.
 - App bundle projects own their domain-specific extensions, prompts, schemas,
@@ -478,7 +478,7 @@ The implementation should keep the boundary strict:
 `localpi` should continue owning local model runtime selection and managed
 `llama-server` behavior.
 
-Pi Factory can replace the generic Pi config and launch-plan wiring, but should
+pi-factory can replace the generic Pi config and launch-plan wiring, but should
 not absorb runtime management.
 
 ### localpager-agent
@@ -486,7 +486,7 @@ not absorb runtime management.
 `localpager-agent` should continue owning structured output, repo shell behavior,
 prompt templating, and sampling controls.
 
-Pi Factory can replace common config generation and launch-plan construction.
+pi-factory can replace common config generation and launch-plan construction.
 
 ## Testing
 

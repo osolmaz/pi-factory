@@ -1,6 +1,6 @@
 # Pi App Manifest v1
 
-Pi Factory app bundles contain `pi-factory.toml` at the bundle root.
+pi-factory app bundles contain `pi-factory.toml` at the bundle root.
 
 ## Required fields
 
@@ -80,9 +80,9 @@ reasoning = true
 providers = ["openai-codex"]
 ```
 
-Every provider with `source = "pi"` must appear once in `inherit.providers`. Pi Factory uses the
+Every provider with `source = "pi"` must appear once in `inherit.providers`. pi-factory uses the
 main profile's provider implementation, model data, and existing authentication state. The app still
-selects its own provider and model. Pi Factory does not write the provider or model selection back to
+selects its own provider and model. pi-factory does not write the provider or model selection back to
 the main Pi profile.
 
 Credentials are not inherited as manifest values. They stay in the main profile's `auth.json` or
@@ -112,7 +112,7 @@ errors. Package resolution does not install missing packages and does not execut
 
 ## Isolation
 
-Selective inheritance denies ambient resources by default. Pi Factory disables automatic discovery
+Selective inheritance denies ambient resources by default. pi-factory disables automatic discovery
 of extensions, skills, prompt templates, themes, and context files. It then passes only app-owned
 paths and selected inherited paths through Pi's existing explicit resource interfaces.
 
@@ -129,10 +129,10 @@ The broad `profile: ambient` option is not a fallback for selective inheritance.
 ## Paths and commands
 
 Paths are relative to the app bundle root unless they are absolute. `pi_command` is a nonempty argv
-array. Pi Factory does not interpret shell syntax in it. Prefix bundle-relative command paths with
+array. pi-factory does not interpret shell syntax in it. Prefix bundle-relative command paths with
 `./`, put environment values in `[env]`, and use a bundle script when shell behavior is needed.
 
-Pi Factory loads prompt files and passes them to Pi through native prompt flags.
+pi-factory loads prompt files and passes them to Pi through native prompt flags.
 
 ## Provider package declaration
 
@@ -156,7 +156,7 @@ provider override can declare it in `package.json`:
 
 The named extension must be enabled in the main Pi profile. The module must stay inside the installed
 package root and return one complete Pi `Provider` with the declared ID. A selected declaration that
-fails to load or construct the provider is a final error. Pi Factory does not retry with Pi's
+fails to load or construct the provider is a final error. pi-factory does not retry with Pi's
 built-in provider.
 
 See the [selective Pi profile inheritance plan](2026-08-21-selective-profile-inheritance-plan.md)
