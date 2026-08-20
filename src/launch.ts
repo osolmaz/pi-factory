@@ -79,17 +79,23 @@ export async function createPiCommandPlan(
   const warnings = managedPiEnvWarnings(app.env);
   const cwd = await launchCwd(app, cwdOverride);
   const command = await resolveLaunchCommand(app);
+  const inheritance =
+    app.inherit === undefined
+      ? undefined
+      : await resolveInheritance({
+          app,
+          cwd: cwd ?? process.cwd(),
+          agentDir: ambientAgentDir(process.env),
+          providerId: app.defaultProvider
+        });
+  const providerInherited = app.inherit?.providers.includes(app.defaultProvider) ?? false;
+  validateLaunchInheritance(inheritance);
   return {
     appId: app.id,
     appName: app.name,
     command: command.program,
-    args: [...command.args, ...piArgs],
-    env: launchEnv(
-      app,
-      runtimeConfig,
-      appEnv,
-      app.inherit?.providers.includes(app.defaultProvider) ?? false
-    ),
+    args: [...command.args, ...inheritedResourceArgs(inheritance), ...piArgs],
+    env: launchEnv(app, runtimeConfig, appEnv, providerInherited),
     ...(cwd === undefined ? {} : { cwd }),
     runtimeConfig,
     warnings

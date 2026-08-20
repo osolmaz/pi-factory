@@ -54,7 +54,10 @@ export async function resolveInheritance(input: {
     settingsManager
   });
   const configured = packageManager.listConfiguredPackages();
-  const resolved = await packageManager.resolve(async () => "error");
+  const selectedPackageSources = new Set(inherit.packages.map((entry) => entry.source));
+  const resolved = await packageManager.resolve((source) =>
+    Promise.resolve(selectedPackageSources.has(source) ? "error" : "skip")
+  );
   input.signal?.throwIfAborted();
 
   const selected = {
