@@ -70,7 +70,7 @@ export async function createPiFactoryRuntime(input: {
   try {
     await input.prepareModelRuntime?.(modelRuntime);
     if (inheritance.providerModule !== undefined) {
-      const nativeProvider = modelRuntime.getRegisteredNativeProvider(input.providerId);
+      const nativeProvider = modelRuntime.getProvider(input.providerId);
       createdProvider = await createDeclaredProvider({
         declaration: inheritance.providerModule,
         agentDir: input.agentDir,

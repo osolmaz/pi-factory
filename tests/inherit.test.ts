@@ -196,6 +196,98 @@ providers = ["custom"]
     }
   });
 
+  it("passes the effective built-in provider to its provider module", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "pi-factory-builtin-provider-"));
+    const agentDir = path.join(root, "agent");
+    const appAgentDir = path.join(root, "app-agent");
+    const packageRoot = path.join(root, "provider-package");
+    const providerModulePath = path.join(packageRoot, "provider-module.mjs");
+    const builtInProviderId = "openai";
+    const builtInModelId = "gpt-4.1";
+    await mkdir(agentDir, { recursive: true });
+    await mkdir(appAgentDir, { recursive: true });
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(
+      path.join(agentDir, "auth.json"),
+      JSON.stringify({ [builtInProviderId]: { type: "api_key", key: "test" } })
+    );
+    await writeFile(path.join(packageRoot, "index.mjs"), "export default function activate() {}\n");
+    await writeFile(
+      providerModulePath,
+      `
+export const version = 1;
+export function createProvider(input) {
+  if (input.nativeProvider === undefined) throw new Error("effective provider was not supplied");
+  if (input.nativeProvider.id !== ${JSON.stringify(builtInProviderId)}) {
+    throw new Error("wrong effective provider");
+  }
+  return { provider: input.nativeProvider };
+}
+`
+    );
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify({
+        name: "builtin-provider-package",
+        type: "module",
+        pi: { extensions: ["./index.mjs"] },
+        piFactory: {
+          providers: [
+            {
+              version: 1,
+              id: builtInProviderId,
+              module: "./provider-module.mjs",
+              extension: "./index.mjs"
+            }
+          ]
+        }
+      })}\n`
+    );
+    await writeFile(
+      path.join(agentDir, "settings.json"),
+      `${JSON.stringify({
+        packages: [
+          {
+            source: packageRoot,
+            autoload: false,
+            extensions: ["index.mjs"]
+          }
+        ]
+      })}\n`
+    );
+    const app: PiAppDefinition = {
+      id: "builtin-provider-app",
+      name: "Built-in provider app",
+      stateDir: path.join(root, "state"),
+      sessionDir: path.join(root, "sessions"),
+      piCommand: ["true"],
+      providers: [{ id: builtInProviderId, source: "pi", models: [{ id: builtInModelId }] }],
+      defaultProvider: builtInProviderId,
+      defaultModel: builtInModelId,
+      thinking: "off",
+      inherit: { providers: [builtInProviderId], packages: [] }
+    };
+    try {
+      const runtime = await createPiFactoryRuntime({
+        app,
+        cwd: root,
+        agentDir,
+        appAgentDir,
+        providerId: builtInProviderId,
+        modelId: builtInModelId,
+        prepareModelRuntime: (modelRuntime) => {
+          expect(modelRuntime.getRegisteredNativeProvider(builtInProviderId)).toBeUndefined();
+          expect(modelRuntime.getProvider(builtInProviderId)?.id).toBe(builtInProviderId);
+        }
+      });
+      expect(runtime.model.id).toBe(builtInModelId);
+      expect(runtime.providerOwnsAuthentication).toBe(true);
+      await runtime.close();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("keeps one provider run active through the complete operation", async () => {
     const fixture = await createProfileFixture();
     try {

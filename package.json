@@ -1,6 +1,6 @@
 {
   "name": "@osolmaz/pi-factory",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Declarative Pi application bundle launcher.",
   "keywords": [
     "pi-package",
