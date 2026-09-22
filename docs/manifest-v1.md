@@ -161,6 +161,3 @@ built-in provider.
 
 See the [selective Pi profile inheritance plan](2026-08-21-selective-profile-inheritance-plan.md)
 for the full provider module, runtime, isolation, and rollout requirements.
-
-pi-factory passes the app `id` to Pi as `PI_RESUME_COMMAND`, which Pi uses for the resume command in
-the hint it prints on exit, so that hint names the app instead of `pi`.

@@ -47,7 +47,6 @@ describe("pi-factory", () => {
       expect(plan.args).toContain(path.join(root, "extensions", "demo.ts"));
       expect(plan.args).toContain("--append-system-prompt");
       expect(plan.env["PI_CODING_AGENT_DIR"]).toContain("pi-config-runtime");
-      expect(plan.env["PI_RESUME_COMMAND"]).toBe("demo-agent");
       expect(shellCommand("pi", ["quoted 'arg'"])).toBe("pi 'quoted '\\''arg'\\'''");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -70,16 +69,13 @@ describe("pi-factory", () => {
       env: {
         PI_CODING_AGENT_DIR: "/tmp/wrong-config",
         PI_CODING_AGENT_SESSION_DIR: "/tmp/wrong-sessions",
-        PI_RESUME_COMMAND: "/tmp/wrong-command",
         CUSTOM_ENV: "1"
       }
     });
     expect(plan.env["PI_CODING_AGENT_DIR"]).toContain("pi-config-runtime");
     expect(plan.env["PI_CODING_AGENT_SESSION_DIR"]).toBe("/tmp/pi-factory-sessions");
-    expect(plan.env["PI_RESUME_COMMAND"]).toBe("demo-agent");
     expect(plan.env["CUSTOM_ENV"]).toBe("1");
     expect(plan.warnings).toContain("ignored managed env PI_CODING_AGENT_DIR");
-    expect(plan.warnings).toContain("ignored managed env PI_RESUME_COMMAND");
   });
 
   it("resolves the main Pi agent directory without a launch profile override", () => {
@@ -112,7 +108,6 @@ describe("pi-factory", () => {
       thinking: "medium",
       forwardedArgs: ["--tools", "read"]
     });
-    expect(plan.env["PI_RESUME_COMMAND"]).toBe("minimal-agent");
     expect(plan.args).not.toContain("--system-prompt");
     expect(plan.args.filter((arg) => arg === "--tools")).toHaveLength(1);
     await expect(execPiLaunchPlan({ ...plan, command: "" })).rejects.toThrow(

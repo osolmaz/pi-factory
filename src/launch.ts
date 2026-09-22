@@ -320,7 +320,6 @@ function launchEnv(
     ...appEnv,
     PI_CODING_AGENT_DIR: providerInherited ? ambientAgentDir(process.env) : runtimeConfig.configDir,
     PI_CODING_AGENT_SESSION_DIR: app.sessionDir,
-    PI_RESUME_COMMAND: app.id,
     PI_OFFLINE: process.env["PI_OFFLINE"] ?? "1",
     PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",
     PI_SKIP_VERSION_CHECK: process.env["PI_SKIP_VERSION_CHECK"] ?? "1"
@@ -331,12 +330,6 @@ export function ambientAgentDir(env: NodeJS.ProcessEnv): string {
   return env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent");
 }
 
-const MANAGED_PI_ENV_KEYS: readonly string[] = [
-  "PI_CODING_AGENT_DIR",
-  "PI_CODING_AGENT_SESSION_DIR",
-  "PI_RESUME_COMMAND"
-];
-
 function withoutManagedPiEnv(
   env: Readonly<Record<string, string>> | undefined
 ): Readonly<Record<string, string>> {
@@ -344,7 +337,9 @@ function withoutManagedPiEnv(
     return {};
   }
   return Object.fromEntries(
-    Object.entries(env).filter(([key]) => !MANAGED_PI_ENV_KEYS.includes(key))
+    Object.entries(env).filter(
+      ([key]) => key !== "PI_CODING_AGENT_DIR" && key !== "PI_CODING_AGENT_SESSION_DIR"
+    )
   );
 }
 
@@ -354,9 +349,14 @@ function managedPiEnvWarnings(
   if (env === undefined) {
     return [];
   }
-  return MANAGED_PI_ENV_KEYS.filter((key) => env[key] !== undefined).map(
-    (key) => `ignored managed env ${key}`
-  );
+  const warnings: string[] = [];
+  if (env["PI_CODING_AGENT_DIR"] !== undefined) {
+    warnings.push("ignored managed env PI_CODING_AGENT_DIR");
+  }
+  if (env["PI_CODING_AGENT_SESSION_DIR"] !== undefined) {
+    warnings.push("ignored managed env PI_CODING_AGENT_SESSION_DIR");
+  }
+  return warnings;
 }
 
 function shellQuote(value: string): string {

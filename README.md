@@ -115,12 +115,6 @@ append_system_prompt = "prompts/demo.md"
 
 Paths are relative to the app bundle root unless absolute. `pi_command` is an argv array, not a shell string. Prefix bundle-relative command paths with `./`, put environment values in `[env]`, and use a script file when shell behavior is needed.
 
-### Resume Command
-
-Pi prints a resume hint when it exits. Pi Factory passes the app id to Pi as
-`PI_RESUME_COMMAND`, the variable Pi uses for the resume command in that hint, so
-the hint prints the app's own command instead of `pi`.
-
 ## Run
 
 Inspect the resolved launch without starting Pi:

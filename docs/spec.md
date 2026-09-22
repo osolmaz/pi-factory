@@ -214,9 +214,6 @@ pi-factory omits catalog providers from generated `models.json`. A Pi provider m
 authentication in place. The app selects its own provider and model without changing normal Pi's
 selection.
 
-The launch plan passes the app `id` to Pi as `PI_RESUME_COMMAND`, which Pi uses for the resume
-command in the hint it prints on exit.
-
 ## Install and Link
 
 pi-factory should use a Herdr-style source model.
