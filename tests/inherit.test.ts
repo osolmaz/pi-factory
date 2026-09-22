@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -197,7 +197,9 @@ providers = ["custom"]
   });
 
   it("passes the effective built-in provider to its provider module", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "pi-factory-builtin-provider-"));
+    const root = await realpath(
+      await mkdtemp(path.join(os.tmpdir(), "pi-factory-builtin-provider-"))
+    );
     const agentDir = path.join(root, "agent");
     const appAgentDir = path.join(root, "app-agent");
     const packageRoot = path.join(root, "provider-package");
@@ -463,7 +465,9 @@ export function createProvider(input) {
   });
 
   it("validates provider module versions, provider shape, IDs, and lifecycle functions", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "pi-factory-provider-module-"));
+    const root = await realpath(
+      await mkdtemp(path.join(os.tmpdir(), "pi-factory-provider-module-"))
+    );
     const declaration = (name: string): ResolvedProviderModule => {
       const modulePath = path.join(root, `${name}.mjs`);
       return {
@@ -589,7 +593,7 @@ async function createProfileFixture(options: { readonly failingProvider?: boolea
   readonly themePath: string;
   readonly eventsPath: string;
 }> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "pi-factory-inherit-"));
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "pi-factory-inherit-")));
   const agentDir = path.join(root, "agent");
   const appAgentDir = path.join(root, "app-agent");
   const packageRoot = path.join(root, "provider-package");
