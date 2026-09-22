@@ -5,7 +5,8 @@ These instructions apply to this repository.
 ## Quality Gates
 
 - Run `npm run check` before finishing changes.
-- Run `npm run mutate` before merge when mutation coverage is relevant or CI requires it.
+- Mutation tests are optional and stay out of the default gate and CI. Run `npm run mutate` when
+  mutation coverage is relevant; the weekly `mutation` workflow runs them as well.
 - Keep `slophammer.yml` and `.github/workflows/ci.yml` aligned with Slophammer's TypeScript standards.
 - If applying or updating Slophammer standards, start with `/home/bob/repos/slophammer/docs/AGENT_ENTRYPOINT.md`.
 
