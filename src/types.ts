@@ -75,6 +75,8 @@ export type PiAppDefinition = {
   readonly stateDir: string;
   readonly sessionDir: string;
   readonly piCommand: readonly string[];
+  /** Command that restarts this app, for Pi's printed hints such as the exit resume command. */
+  readonly resumeCommand?: string;
   readonly providers: readonly PiProviderDefinition[];
   readonly defaultProvider: string;
   readonly defaultModel: string;
@@ -99,6 +101,8 @@ export type PiAppManifest = {
   readonly state_dir: string;
   readonly session_dir?: string;
   readonly pi_command?: readonly string[];
+  /** Command that restarts this app, for Pi's printed hints such as the exit resume command. */
+  readonly resume_command?: string;
   readonly thinking?: PiThinkingLevel;
   readonly tools?: readonly string[];
   readonly system_prompt?: string;
