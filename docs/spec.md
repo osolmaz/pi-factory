@@ -162,6 +162,7 @@ platforms = ["linux", "macos", "windows"]
 state_dir = "~/.local/state/localpager"
 session_dir = "~/.local/state/localpager/sessions"
 pi_command = ["npx", "-y", "@earendil-works/pi-coding-agent@latest"]
+resume_command = "pi-factory run localpager"
 thinking = "medium"
 tools = ["bash", "final_json"]
 system_prompt = "prompts/system.md"
@@ -213,6 +214,10 @@ pi-factory omits catalog providers from generated `models.json`. A Pi provider m
 `inherit.providers`. pi-factory uses the main profile's provider implementation, model data, and
 authentication in place. The app selects its own provider and model without changing normal Pi's
 selection.
+
+`resume_command` names the command line that restarts the app. The launch plan does not run it. It
+passes it to Pi as `PI_RESUME_COMMAND`, which Pi uses for the resume command in the hint it prints on
+exit.
 
 ## Install and Link
 

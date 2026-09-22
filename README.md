@@ -115,6 +115,21 @@ append_system_prompt = "prompts/demo.md"
 
 Paths are relative to the app bundle root unless absolute. `pi_command` is an argv array, not a shell string. Prefix bundle-relative command paths with `./`, put environment values in `[env]`, and use a script file when shell behavior is needed.
 
+### Resume Command
+
+Pi prints a resume hint when it exits. Set `resume_command` when users start the
+app through their own launcher:
+
+```toml
+resume_command = "localpi"
+```
+
+Pi Factory passes the value to Pi as `PI_RESUME_COMMAND`, the variable Pi uses
+for the resume command in that hint. The hint then prints
+`localpi --session-dir ... --session ...` instead of `pi --session-dir ...
+--session ...`. Apps that Pi Factory runs itself use
+`resume_command = "pi-factory run <app-id>"`.
+
 ## Run
 
 Inspect the resolved launch without starting Pi:
