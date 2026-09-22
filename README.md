@@ -117,18 +117,9 @@ Paths are relative to the app bundle root unless absolute. `pi_command` is an ar
 
 ### Resume Command
 
-Pi prints a resume hint when it exits. Set `resume_command` when users start the
-app through their own launcher:
-
-```toml
-resume_command = "localpi"
-```
-
-Pi Factory passes the value to Pi as `PI_RESUME_COMMAND`, the variable Pi uses
-for the resume command in that hint. The hint then prints
-`localpi --session-dir ... --session ...` instead of `pi --session-dir ...
---session ...`. Apps that Pi Factory runs itself use
-`resume_command = "pi-factory run <app-id>"`.
+Pi prints a resume hint when it exits. Pi Factory passes the app id to Pi as
+`PI_RESUME_COMMAND`, the variable Pi uses for the resume command in that hint, so
+the hint prints the app's own command instead of `pi`.
 
 ## Run
 

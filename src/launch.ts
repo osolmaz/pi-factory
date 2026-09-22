@@ -320,7 +320,7 @@ function launchEnv(
     ...appEnv,
     PI_CODING_AGENT_DIR: providerInherited ? ambientAgentDir(process.env) : runtimeConfig.configDir,
     PI_CODING_AGENT_SESSION_DIR: app.sessionDir,
-    ...(app.resumeCommand === undefined ? {} : { PI_RESUME_COMMAND: app.resumeCommand }),
+    PI_RESUME_COMMAND: app.id,
     PI_OFFLINE: process.env["PI_OFFLINE"] ?? "1",
     PI_TELEMETRY: process.env["PI_TELEMETRY"] ?? "0",
     PI_SKIP_VERSION_CHECK: process.env["PI_SKIP_VERSION_CHECK"] ?? "1"

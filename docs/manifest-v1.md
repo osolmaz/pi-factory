@@ -18,7 +18,6 @@ Common optional fields are:
 - `platforms`
 - `session_dir`
 - `pi_command`
-- `resume_command`
 - `thinking`
 - `tools`
 - `system_prompt`
@@ -37,7 +36,6 @@ version = "0.1.0"
 schema_version = 1
 state_dir = "~/.local/state/demo-agent"
 pi_command = ["npx", "-y", "@earendil-works/pi-coding-agent@latest"]
-resume_command = "pi-factory run demo-agent"
 thinking = "medium"
 tools = ["read", "bash"]
 system_prompt = "prompts/system.md"
@@ -164,7 +162,5 @@ built-in provider.
 See the [selective Pi profile inheritance plan](2026-08-21-selective-profile-inheritance-plan.md)
 for the full provider module, runtime, isolation, and rollout requirements.
 
-`resume_command` is the command line that restarts the app. pi-factory does not run it. It passes it
-to Pi as `PI_RESUME_COMMAND`, which Pi uses for the resume command in the hint it prints on exit, so
-the hint names the app's own launcher instead of `pi`. Apps that pi-factory starts itself use
-`resume_command = "pi-factory run <app-id>"`.
+pi-factory passes the app `id` to Pi as `PI_RESUME_COMMAND`, which Pi uses for the resume command in
+the hint it prints on exit, so that hint names the app instead of `pi`.

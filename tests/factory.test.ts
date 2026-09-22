@@ -32,7 +32,6 @@ describe("pi-factory", () => {
     expect(manifest.id).toBe("demo-agent");
     expect(manifest.provider.id).toBe("local-openai");
     expect(manifest.extensions?.[0]?.path).toBe("extensions/demo.ts");
-    expect(manifest.resume_command).toBe("demo-agent --resume");
   });
 
   it("loads manifests and creates native Pi launch plans", async () => {
@@ -48,7 +47,7 @@ describe("pi-factory", () => {
       expect(plan.args).toContain(path.join(root, "extensions", "demo.ts"));
       expect(plan.args).toContain("--append-system-prompt");
       expect(plan.env["PI_CODING_AGENT_DIR"]).toContain("pi-config-runtime");
-      expect(plan.env["PI_RESUME_COMMAND"]).toBe("demo-agent --resume");
+      expect(plan.env["PI_RESUME_COMMAND"]).toBe("demo-agent");
       expect(shellCommand("pi", ["quoted 'arg'"])).toBe("pi 'quoted '\\''arg'\\'''");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -77,29 +76,10 @@ describe("pi-factory", () => {
     });
     expect(plan.env["PI_CODING_AGENT_DIR"]).toContain("pi-config-runtime");
     expect(plan.env["PI_CODING_AGENT_SESSION_DIR"]).toBe("/tmp/pi-factory-sessions");
-    expect(plan.env["PI_RESUME_COMMAND"]).toBeUndefined();
+    expect(plan.env["PI_RESUME_COMMAND"]).toBe("demo-agent");
     expect(plan.env["CUSTOM_ENV"]).toBe("1");
     expect(plan.warnings).toContain("ignored managed env PI_CODING_AGENT_DIR");
     expect(plan.warnings).toContain("ignored managed env PI_RESUME_COMMAND");
-  });
-
-  it("passes a declared resume command to Pi", async () => {
-    const plan = await createPiLaunchPlan({
-      id: "localpi",
-      name: "Localpi",
-      stateDir: "/tmp/pi-factory-state",
-      sessionDir: "/tmp/pi-factory-sessions",
-      piCommand: ["sh"],
-      resumeCommand: "localpi",
-      providers: [
-        { id: "local-openai", baseUrl: "http://127.0.0.1:1234/v1", models: [{ id: "auto" }] }
-      ],
-      defaultProvider: "local-openai",
-      defaultModel: "auto",
-      thinking: "medium"
-    });
-
-    expect(plan.env["PI_RESUME_COMMAND"]).toBe("localpi");
   });
 
   it("resolves the main Pi agent directory without a launch profile override", () => {
@@ -132,6 +112,7 @@ describe("pi-factory", () => {
       thinking: "medium",
       forwardedArgs: ["--tools", "read"]
     });
+    expect(plan.env["PI_RESUME_COMMAND"]).toBe("minimal-agent");
     expect(plan.args).not.toContain("--system-prompt");
     expect(plan.args.filter((arg) => arg === "--tools")).toHaveLength(1);
     await expect(execPiLaunchPlan({ ...plan, command: "" })).rejects.toThrow(
@@ -862,7 +843,6 @@ version = "0.1.0"
 schema_version = 1
 state_dir = "${stateDir}"
 pi_command = ["true"]
-resume_command = "demo-agent --resume"
 thinking = "medium"
 tools = ["read", "bash"]
 system_prompt = "prompts/system.md"

@@ -34,7 +34,6 @@ type TopLevelManifestFields = Pick<
   | "description"
   | "session_dir"
   | "pi_command"
-  | "resume_command"
   | "thinking"
   | "tools"
   | "system_prompt"
@@ -124,7 +123,6 @@ function readTopLevelFields(
   const description = optionalString(value, "description", errors);
   const sessionDir = optionalString(value, "session_dir", errors);
   const piCommand = piCommandField(value, errors);
-  const resumeCommand = optionalString(value, "resume_command", errors);
   const tools = stringArrayField(value, "tools", false, errors);
   const systemPrompt = optionalString(value, "system_prompt", errors);
   const env = recordStringField(value, "env", false, errors);
@@ -136,7 +134,6 @@ function readTopLevelFields(
   assignDefined(fields, "description", description);
   assignDefined(fields, "session_dir", sessionDir);
   assignDefined(fields, "pi_command", piCommand);
-  assignDefined(fields, "resume_command", resumeCommand);
   assignDefined(fields, "thinking", thinking as PiThinkingLevel | undefined);
   assignDefined(fields, "tools", tools);
   assignDefined(fields, "system_prompt", systemPrompt);
@@ -359,7 +356,6 @@ export async function manifestToDefinition(
   assignDefined(app, "tools", manifest.tools?.join(","));
   assignDefined(app, "systemPrompt", await systemPromptText(manifest, appRoot));
   assignDefined(app, "env", manifest.env);
-  assignDefined(app, "resumeCommand", manifest.resume_command);
   assignDefined(app, "build", manifest.build);
   if (manifest.inherit !== undefined) {
     assignDefined(app, "inherit", {
