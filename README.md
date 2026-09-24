@@ -12,9 +12,21 @@ setup, while everything else, from the TUI to the extension SDK, stays standard
 Pi. You describe a distribution in one `pi-factory.toml` manifest, and
 pi-factory validates that app bundle and launches Pi with the right config.
 
-pi-factory does not replace Pi, and it does not manage local model servers by
-default. Distributions such as [localpi](https://github.com/osolmaz/localpi)
-decide how models are discovered or started.
+## Examples
+
+[localpi](https://github.com/osolmaz/localpi) is a Pi distribution for testing
+small local models on constrained systems. It finds the running llama.cpp, vLLM,
+or LM Studio server and points Pi at the loaded model.
+
+[Pi Reviewer](https://github.com/osolmaz/pi-reviewer) reviews a Git diff in a
+fresh Pi process and returns findings ranked from P0 to P3, in the same shape as
+`codex review`. Its manifest is
+[`pi-factory.toml`](https://github.com/osolmaz/pi-reviewer/blob/main/pi-factory.toml).
+
+[diffusionpi](https://github.com/osolmaz/diffusionpi) runs Pi against a local
+vLLM server with DiffusionGemma and draws the model's answer live in the TUI
+while it denoises. Its manifest is
+[`app/pi-factory.toml`](https://github.com/osolmaz/diffusionpi/blob/main/app/pi-factory.toml).
 
 ## Install
 
