@@ -1,20 +1,20 @@
 # pi-factory
 
 <p align="center">
-  <img src="assets/cover.svg" alt="pi-factory: a manifest goes in, an isolated standalone Pi app comes out" width="880">
+  <img src="assets/cover.svg" alt="pi-factory: a toolkit for creating Pi distributions from one declarative manifest" width="880">
 </p>
 
-pi-factory lets you develop and deploy isolated bundles of
-[Pi](https://pi.dev) for specific purposes.
+pi-factory is a toolkit for creating Pi distributions.
 
-Use it when you want a named standalone Pi app with its own model/provider
-config, prompts, extensions, state directory, and session directory, while still
-using Pi's normal CLI, TUI, model picker, slash commands, and extension SDK.
+A Pi distribution is a named build of [Pi](https://pi.dev) with its own model
+setup and extensions. It keeps its state and sessions apart from your main Pi
+setup, while everything else, from the TUI to the extension SDK, stays standard
+Pi. You describe a distribution in one `pi-factory.toml` manifest, and
+pi-factory validates that app bundle and launches Pi with the right config.
 
-pi-factory does not replace Pi and does not manage local model servers by
-default. App projects such as `localpi` decide how models are discovered or
-started; pi-factory resolves the app bundle and launches Pi with the right
-config.
+pi-factory does not replace Pi, and it does not manage local model servers by
+default. Distributions such as [localpi](https://github.com/osolmaz/localpi)
+decide how models are discovered or started.
 
 ## Install
 

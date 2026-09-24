@@ -5,8 +5,8 @@ Date: 2026-06-24
 
 ## Purpose
 
-pi-factory defines a small convention for building standalone applications on top
-of Pi.
+pi-factory is a toolkit for creating Pi distributions: standalone applications
+built on top of Pi.
 
 The core idea:
 

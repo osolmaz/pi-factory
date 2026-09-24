@@ -1,11 +1,12 @@
 {
   "name": "@osolmaz/pi-factory",
   "version": "0.7.0",
-  "description": "Declarative Pi application bundle launcher.",
+  "description": "Toolkit for creating Pi distributions from declarative app bundles.",
   "keywords": [
     "pi-package",
     "pi",
     "pi-coding-agent",
+    "pi-distribution",
     "app-bundle",
     "cli"
   ],
