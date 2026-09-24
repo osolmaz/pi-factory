@@ -1,20 +1,32 @@
 # pi-factory
 
 <p align="center">
-  <img src="assets/cover.svg" alt="pi-factory: a manifest goes in, an isolated standalone Pi app comes out" width="880">
+  <img src="assets/cover.svg" alt="pi-factory: a toolkit for creating Pi distributions in a more structured way" width="880">
 </p>
 
-pi-factory lets you develop and deploy isolated bundles of
-[Pi](https://pi.dev) for specific purposes.
+pi-factory is a toolkit for creating Pi distributions.
 
-Use it when you want a named standalone Pi app with its own model/provider
-config, prompts, extensions, state directory, and session directory, while still
-using Pi's normal CLI, TUI, model picker, slash commands, and extension SDK.
+A Pi distribution is a named build of [Pi](https://pi.dev) with its own model
+setup and extensions. It keeps its state and sessions apart from your main Pi
+setup, while everything else, from the TUI to the extension SDK, stays standard
+Pi. You describe a distribution in one `pi-factory.toml` manifest, and
+pi-factory validates that app bundle and launches Pi with the right config.
 
-pi-factory does not replace Pi and does not manage local model servers by
-default. App projects such as `localpi` decide how models are discovered or
-started; pi-factory resolves the app bundle and launches Pi with the right
-config.
+## Examples
+
+[localpi](https://github.com/osolmaz/localpi) is a Pi distribution for testing
+small local models on constrained systems. It finds the running llama.cpp, vLLM,
+or LM Studio server and points Pi at the loaded model.
+
+[Pi Reviewer](https://github.com/osolmaz/pi-reviewer) reviews a Git diff in a
+fresh Pi process and returns findings ranked from P0 to P3, in the same shape as
+`codex review`. Its manifest is
+[`pi-factory.toml`](https://github.com/osolmaz/pi-reviewer/blob/main/pi-factory.toml).
+
+[diffusionpi](https://github.com/osolmaz/diffusionpi) runs Pi against a local
+vLLM server with DiffusionGemma and draws the model's answer live in the TUI
+while it denoises. Its manifest is
+[`app/pi-factory.toml`](https://github.com/osolmaz/diffusionpi/blob/main/app/pi-factory.toml).
 
 ## Install
 
