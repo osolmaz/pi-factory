@@ -1,7 +1,7 @@
 # pi-factory
 
 <p align="center">
-  <img src="assets/cover.svg" alt="pi-factory: a toolkit for creating Pi distributions from one declarative manifest" width="880">
+  <img src="assets/cover.svg" alt="pi-factory: a toolkit for creating Pi distributions in a more structured way" width="880">
 </p>
 
 pi-factory is a toolkit for creating Pi distributions.
