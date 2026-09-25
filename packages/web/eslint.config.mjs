@@ -7,11 +7,11 @@ export default tseslint.config(
       "**/dist/**",
       "**/node_modules/**",
       "**/coverage/**",
-      "**/eslint.config.mjs",
+      "eslint.config.mjs",
       "**/*.config.ts",
       // Plain JavaScript helpers: the web UI copy step and the fake Pi that the web tests run.
-      "packages/web/scripts/*.mjs",
-      "packages/web/tests/fixtures/*.mjs"
+      "scripts/*.mjs",
+      "tests/fixtures/*.mjs"
     ]
   },
   js.configs.recommended,

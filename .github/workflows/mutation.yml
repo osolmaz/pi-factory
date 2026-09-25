@@ -17,3 +17,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run mutate
+      - name: Web package mutation tests
+        working-directory: packages/web
+        run: npm run mutate

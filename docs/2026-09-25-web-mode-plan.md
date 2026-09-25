@@ -7,6 +7,20 @@ tags: [pi, web, sessions, terminal]
 
 # Web mode plan
 
+## Status
+
+Implemented in `packages/web/`, and `localpi --web` uses it. `packages/web/README.md` describes the
+package as it is now. Findings from the implementation:
+
+- ghostty-web has two gaps that the page works around: no Kitty keyboard protocol (the page encodes
+  `Ctrl+Shift+letter` itself) and wheel events sent as arrow keys (the page sends SGR wheel events).
+- Session lists are computed asynchronously, so the server sends only the newest list, and the page
+  detaches from a session only when the server closes its terminal socket.
+- The runner can listen on a non-loopback address, such as a Tailscale address, with extra allowed
+  host names. The token still protects every request.
+- The package depends on the published `@osolmaz/pi-factory`, because npm does not link a workspace
+  root into its members.
+
 ## Goal
 
 Let a pi-factory app run in the browser with one command, for example `localpi --web`. The user

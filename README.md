@@ -218,6 +218,21 @@ the complete high-level operation. The app's model choice is private to that run
 The old broad `profile: "ambient"` override is removed. Use `[inherit]` to name the exact provider
 and package resources the app needs.
 
+## Web Mode
+
+[`@osolmaz/pi-factory-web`](packages/web) runs an app in the browser: a session list on the left
+and the app's Pi TUI on the right, in a ghostty-web terminal. It takes the same app definition as
+`runPiApp`:
+
+```ts
+import { runPiWebApp } from "@osolmaz/pi-factory-web";
+
+process.exitCode = await runPiWebApp(app);
+```
+
+It is a separate package, so apps that never use the browser do not install it. See
+[packages/web/README.md](packages/web/README.md).
+
 ## More
 
 - [Specification](docs/spec.md)

@@ -17,6 +17,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Web package check
+        working-directory: packages/web
+        run: npm run check
       - uses: osolmaz/slophammer@main
         with:
           checker: ts
