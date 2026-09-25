@@ -1,5 +1,6 @@
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -150,6 +151,26 @@ function statusWithHost(started: Started, host: string): Promise<number | undefi
     });
     request.on("error", reject);
     request.end();
+  });
+}
+
+// Send an upgrade request with a raw request target, which fetch and ws would normalize.
+function rawUpgrade(started: Started, target: string): Promise<string> {
+  const url = new URL(started.base);
+  return new Promise((resolve) => {
+    const socket = net.connect(Number(url.port), url.hostname, () => {
+      socket.write(
+        `GET ${target} HTTP/1.1\r\nHost: ${url.host}\r\nUpgrade: websocket\r\n` +
+          "Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+          "Sec-WebSocket-Version: 13\r\n\r\n"
+      );
+    });
+    socket.on("close", () => {
+      resolve("closed");
+    });
+    socket.on("error", () => {
+      resolve("closed");
+    });
   });
 }
 
@@ -360,6 +381,7 @@ describe("pi-factory web app", () => {
       badPath.ws.once("close", resolve);
     });
     expect(closeCode).toBe(4400);
+    expect(await rawUpgrade(started, "http://localhost:99999/api/events")).toBe("closed");
     expect((await fetch(started.web.url)).status).toBe(200);
 
     expect(await statusWithHost(started, "attacker.example")).toBe(403);

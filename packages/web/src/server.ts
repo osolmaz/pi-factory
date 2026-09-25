@@ -59,19 +59,13 @@ export function createWebServer(deps: WebServerDeps): WebServer {
     });
   });
   server.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-    const url = requestUrl(request);
-    if (!allowedSocket(request, url, deps)) {
+    // Everything here handles untrusted input outside the HTTP error handler, so any failure,
+    // such as a request target that URL cannot parse, only drops this socket.
+    try {
+      upgradeSocket(deps, pages, sockets, { request, socket, head });
+    } catch {
       socket.destroy();
-      return;
     }
-    sockets.handleUpgrade(request, socket, head, (ws) => {
-      try {
-        acceptSocket(deps, pages, ws, url);
-      } catch {
-        // A malformed path, such as a bad percent escape, must not stop the server.
-        ws.close(4400, "bad request");
-      }
-    });
   });
   // Lists are computed asynchronously, so an older list can finish after a newer one. Only the
   // newest request may reach the pages.
@@ -93,6 +87,33 @@ export function createWebServer(deps: WebServerDeps): WebServer {
     });
   };
   return { server, notify, close };
+}
+
+type Upgrade = {
+  readonly request: IncomingMessage;
+  readonly socket: Duplex;
+  readonly head: Buffer;
+};
+
+function upgradeSocket(
+  deps: WebServerDeps,
+  pages: Set<WebSocket>,
+  sockets: WebSocketServer,
+  upgrade: Upgrade
+): void {
+  const url = requestUrl(upgrade.request);
+  if (!allowedSocket(upgrade.request, url, deps)) {
+    upgrade.socket.destroy();
+    return;
+  }
+  sockets.handleUpgrade(upgrade.request, upgrade.socket, upgrade.head, (ws) => {
+    try {
+      acceptSocket(deps, pages, ws, url);
+    } catch {
+      // A malformed path, such as a bad percent escape, must not stop the server.
+      ws.close(4400, "bad request");
+    }
+  });
 }
 
 async function handleRequest(

@@ -30,6 +30,8 @@ let theme: Theme = {};
 let fontFamily = "monospace";
 let sessions: readonly SessionSummary[] = [];
 let attached: Attached | undefined;
+// While a rename box is open, list updates wait, so a re-render does not throw the edit away.
+let renaming = false;
 
 async function main(): Promise<void> {
   const [module, config] = await Promise.all([
@@ -97,6 +99,7 @@ function connectEvents(): void {
 }
 
 function renderSessions(): void {
+  if (renaming) return;
   const nav = element("sessions");
   nav.replaceChildren();
   let group = "";
@@ -189,15 +192,18 @@ function startRename(session: SessionSummary, title: HTMLElement): void {
   input.value = session.title;
   input.setAttribute("aria-label", "Session name");
   let done = false;
+  renaming = true;
   const finish = (save: boolean): void => {
     if (done) return;
     done = true;
+    renaming = false;
     const name = input.value.trim();
     input.replaceWith(title);
     if (save && name !== "" && name !== session.title) {
       title.textContent = name;
       void api("POST", "/api/sessions/rename", { key: session.key, name });
     }
+    renderSessions();
   };
   input.addEventListener("click", (event) => {
     event.stopPropagation();
