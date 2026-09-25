@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,12 +17,8 @@ import {
   renameStoredSession,
   storedSession
 } from "../src/stored-sessions.js";
-import {
-  catppuccinFrappe,
-  catppuccinLatte,
-  catppuccinMacchiato,
-  catppuccinMocha
-} from "../src/theme.js";
+import { loadSettings, mergeSettings, saveSettings } from "../src/settings.js";
+import { catppuccinAccentNames, catppuccinThemeChoices, catppuccinWebTheme } from "../src/theme.js";
 import { runPiWebApp, withWebLaunch } from "../src/web-app.js";
 
 const cleanup: string[] = [];
@@ -211,6 +207,28 @@ describe("session hub", () => {
     await expect(sessions.remove("/nope.jsonl")).rejects.toThrow("unknown session /nope.jsonl");
   });
 
+  it("sends start requests to new sessions and broadcasts to every live one", async () => {
+    let time = 0;
+    const sessions = new SessionHub({
+      spawn: async () => new FakeTerminal(),
+      listStored: async () => [],
+      renameStored: async () => undefined,
+      deleteStored: async () => undefined,
+      startControls: () => [{ theme: "cat-latte" }],
+      onChange: () => undefined,
+      now: () => (time += 1)
+    });
+    const first = await sessions.open();
+    const second = await sessions.open();
+
+    sessions.broadcast({ theme: "cat-mocha" });
+
+    for (const key of [first, second]) {
+      expect(await sessions.nextControl(key, 10)).toEqual({ theme: "cat-latte" });
+      expect(await sessions.nextControl(key, 10)).toEqual({ theme: "cat-mocha" });
+    }
+  });
+
   it("kills every process on stop", async () => {
     const terminals: FakeTerminal[] = [];
     const sessions = hub(terminals);
@@ -274,11 +292,63 @@ describe("stored session titles", () => {
 });
 
 describe("themes", () => {
-  it("builds every Catppuccin flavor with light and dark terminal colors", () => {
-    expect(catppuccinLatte).toMatchObject({ background: "#eff1f5", black: "#5c5f77" });
-    expect(catppuccinFrappe).toMatchObject({ background: "#303446", black: "#51576d" });
-    expect(catppuccinMacchiato).toMatchObject({ background: "#24273a", white: "#b8c0e0" });
-    expect(catppuccinMocha).toMatchObject({ background: "#1e1e2e", brightWhite: "#a6adc8" });
+  it("offers every Catppuccin flavor with its accents and optional Pi theme", () => {
+    const [latte, frappe, macchiato, mocha] = catppuccinThemeChoices({ mocha: "cat-mocha" });
+    expect(latte?.theme).toMatchObject({ background: "#eff1f5", black: "#5c5f77" });
+    expect(frappe?.theme).toMatchObject({ background: "#303446", black: "#51576d" });
+    expect(macchiato?.theme).toMatchObject({ background: "#24273a", white: "#b8c0e0" });
+    expect(mocha).toMatchObject({ id: "catppuccin-mocha", piTheme: "cat-mocha" });
+    expect(Object.keys(latte?.accents ?? {})).toEqual([...catppuccinAccentNames]);
+    expect(latte?.piTheme).toBeUndefined();
+    expect(catppuccinWebTheme("mocha").brightWhite).toBe("#a6adc8");
+  });
+});
+
+describe("settings", () => {
+  const themes = catppuccinThemeChoices();
+  const defaults = { theme: "catppuccin-latte", accent: undefined, fontSize: 14 };
+
+  it("validates changes and drops an accent the new theme lacks", () => {
+    expect(mergeSettings(defaults, { accent: "blue", fontSize: 12 }, themes)).toEqual({
+      theme: "catppuccin-latte",
+      accent: "blue",
+      fontSize: 12
+    });
+    const first = themes[0];
+    if (first === undefined) throw new Error("no theme");
+    const plain = [{ ...first, id: "plain", accents: {} }];
+    expect(mergeSettings({ ...defaults, accent: "blue" }, { theme: "plain" }, plain)).toEqual({
+      theme: "plain",
+      accent: undefined,
+      fontSize: 14
+    });
+    expect(mergeSettings({ ...defaults, accent: "blue" }, { accent: null }, themes).accent).toBe(
+      undefined
+    );
+    expect(() => mergeSettings(defaults, { theme: "neon" }, themes)).toThrow(
+      'unknown theme "neon"'
+    );
+    expect(() => mergeSettings(defaults, { accent: "gold" }, themes)).toThrow(
+      'unknown accent "gold"'
+    );
+    expect(() => mergeSettings(defaults, { fontSize: 9 }, themes)).toThrow("font size must be");
+    expect(() => mergeSettings(defaults, [], themes)).toThrow("settings must be a JSON object");
+  });
+
+  it("saves and loads settings, and falls back to the defaults", async () => {
+    const dir = await realpath(await mkdtemp(path.join(os.tmpdir(), "pi-factory-web-settings-")));
+    cleanup.push(dir);
+    const file = path.join(dir, "nested", "settings.json");
+
+    expect(await loadSettings(file, defaults, themes)).toEqual(defaults);
+    await saveSettings(file, { theme: "catppuccin-mocha", accent: "red", fontSize: 18 });
+    expect(await loadSettings(file, defaults, themes)).toEqual({
+      theme: "catppuccin-mocha",
+      accent: "red",
+      fontSize: 18
+    });
+    await writeFile(file, '{"theme":"gone"}', "utf8");
+    expect(await loadSettings(file, defaults, themes)).toEqual(defaults);
   });
 });
 

@@ -28,8 +28,12 @@ void (async () => {
     const response = await fetch(controlUrl).catch(() => undefined);
     if (response?.status === 200) {
       const request = await response.json();
-      process.stdout.write(`RENAMED:${request.rename}\r\n`);
-      await post({ name: request.rename });
+      if (request.theme !== undefined) {
+        process.stdout.write(`THEME:${request.theme}\r\n`);
+      } else {
+        process.stdout.write(`RENAMED:${request.rename}\r\n`);
+        await post({ name: request.rename });
+      }
     }
   }
 })();

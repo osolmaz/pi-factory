@@ -34,6 +34,36 @@ describe("pi-factory", () => {
     expect(manifest.extensions?.[0]?.path).toBe("extensions/demo.ts");
   });
 
+  it("resolves the app logo against the bundle root", async () => {
+    const manifest = parsePiAppManifest(
+      sampleManifest("/tmp/pi-factory-state").replace(
+        'system_prompt = "prompts/system.md"',
+        'system_prompt = "prompts/system.md"\nlogo = "assets/logo.svg"'
+      )
+    );
+    expect(manifest.logo).toBe("assets/logo.svg");
+    const root = await createAppBundle();
+    try {
+      const app = await manifestToDefinition(manifest, root);
+      expect(app.logo).toBe(path.join(root, "assets", "logo.svg"));
+      const withoutLogo = await manifestToDefinition(
+        parsePiAppManifest(sampleManifest("/tmp/pi-factory-state")),
+        root
+      );
+      expect(withoutLogo.logo).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+    expect(() =>
+      parsePiAppManifest(
+        sampleManifest("/tmp/pi-factory-state").replace(
+          'system_prompt = "prompts/system.md"',
+          'system_prompt = "prompts/system.md"\nlogo = 3'
+        )
+      )
+    ).toThrow("logo must be a string");
+  });
+
   it("loads manifests and creates native Pi launch plans", async () => {
     const root = await createAppBundle();
     try {

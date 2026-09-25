@@ -81,6 +81,8 @@ export type PiAppDefinition = {
   readonly thinking: PiThinkingLevel;
   readonly tools?: string;
   readonly systemPrompt?: string;
+  /** Absolute path to the app's logo image. Front ends such as web mode show it. */
+  readonly logo?: string;
   readonly appendSystemPrompts?: readonly string[];
   readonly extensions?: readonly PiExtensionDefinition[];
   readonly inherit?: PiInheritanceDefinition;
@@ -102,6 +104,8 @@ export type PiAppManifest = {
   readonly thinking?: PiThinkingLevel;
   readonly tools?: readonly string[];
   readonly system_prompt?: string;
+  /** Logo image path, relative to the app bundle root. */
+  readonly logo?: string;
   readonly provider:
     | {
         readonly id: string;

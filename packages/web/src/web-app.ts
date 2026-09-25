@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, realpath } from "node:fs/promises";
+import { access, mkdir, realpath } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -14,7 +14,8 @@ import {
 import { spawn as spawnPty } from "node-pty";
 
 import { openBrowser } from "./open-browser.js";
-import { createWebServer, type WebServer } from "./server.js";
+import { createWebServer, type SettingsState, type WebServer } from "./server.js";
+import { defaultFontSize, loadSettings, mergeSettings, saveSettings } from "./settings.js";
 import {
   SessionHub,
   type SessionHubDeps,
@@ -23,8 +24,8 @@ import {
 } from "./sessions.js";
 import { controlUrlEnv, statusUrlEnv, writeStatusExtension } from "./status-extension.js";
 import { deleteSessionFile, listStoredSessions, renameStoredSession } from "./stored-sessions.js";
-import { catppuccinLatte, defaultFontFamily } from "./theme.js";
-import type { PiWebOptions } from "./types.js";
+import { catppuccinThemeChoices, defaultFontFamily } from "./theme.js";
+import type { PiWebOptions, PiWebSettings, PiWebThemeChoice } from "./types.js";
 
 export type PiWebApp = {
   /** Page URL, including the access token. */
@@ -42,7 +43,8 @@ export async function startPiWebApp(
   const runtimeConfig = await writePiRuntimeConfig(app);
   await mkdir(app.sessionDir, { recursive: true });
   const webApp = withWebLaunch(app, await writeStatusExtension(app.stateDir));
-  const { hub, web, token, setBase } = wireServer(app, options, (urls) => ({
+  const look = await webLook(app, options);
+  const { hub, web, token, setBase } = wireServer(app, options, look, (urls) => ({
     spawn: ptySpawner(webApp, runtimeConfig, cwd, urls),
     listStored: () => listStoredSessions(cwd, app.sessionDir),
     renameStored: async (path, name) => {
@@ -67,6 +69,45 @@ export async function startPiWebApp(
 
 type HubSources = Pick<SessionHubDeps, "spawn" | "listStored" | "renameStored" | "deleteStored">;
 
+/** Everything about how the page looks: themes, saved settings, font, and logo. */
+type WebLook = {
+  readonly themes: readonly PiWebThemeChoice[];
+  readonly settingsPath: string;
+  readonly settings: PiWebSettings;
+  readonly fontFamily: string;
+  readonly logo: string;
+};
+
+// The published core types may not know `logo` yet; the manifest has it from the core release on.
+type AppWithLogo = PiAppDefinition & { readonly logo?: string };
+
+async function webLook(app: AppWithLogo, options: PiWebOptions): Promise<WebLook> {
+  const themes = options.themes ?? catppuccinThemeChoices();
+  const first = themes[0];
+  if (first === undefined) throw new Error("web mode needs at least one theme");
+  const defaultTheme = options.defaultTheme ?? first.id;
+  if (!themes.some((choice) => choice.id === defaultTheme)) {
+    throw new Error(`unknown default theme ${defaultTheme}`);
+  }
+  const logo = options.logo ?? app.logo ?? join(uiDir(), "pi-logo.svg");
+  await access(logo).catch(() => {
+    throw new Error(`logo not found: ${logo}`);
+  });
+  const settingsPath = join(app.stateDir, "pi-factory-web", "settings.json");
+  const defaults = { theme: defaultTheme, accent: undefined, fontSize: defaultFontSize };
+  return {
+    themes,
+    settingsPath,
+    settings: await loadSettings(settingsPath, defaults, themes),
+    fontFamily: options.fontFamily ?? defaultFontFamily,
+    logo
+  };
+}
+
+function piThemeOf(look: WebLook, settings: PiWebSettings): string | undefined {
+  return look.themes.find((choice) => choice.id === settings.theme)?.piTheme;
+}
+
 /** Per-session URLs that the status extension uses. */
 type SessionUrls = {
   readonly status: (key: string) => string;
@@ -78,12 +119,24 @@ type SessionUrls = {
 function wireServer(
   app: PiAppDefinition,
   options: PiWebOptions,
+  look: WebLook,
   sources: (urls: SessionUrls) => HubSources
 ): { hub: SessionHub; web: WebServer; token: string; setBase: (base: string) => void } {
   const token = randomToken();
   const statusToken = randomToken();
-  const state = { base: "", notify: (): void => undefined };
+  const state = {
+    base: "",
+    settings: look.settings,
+    notify: (): void => undefined,
+    notifySettings: (settings: PiWebSettings): void => {
+      void settings;
+    }
+  };
   const hub = new SessionHub({
+    startControls: () => {
+      const piTheme = piThemeOf(look, state.settings);
+      return piTheme === undefined ? [] : [{ theme: piTheme }];
+    },
     ...sources({
       status: (key) => `${state.base}/api/status/${encodeURIComponent(key)}?token=${statusToken}`,
       control: (key) => `${state.base}/api/control/${encodeURIComponent(key)}?token=${statusToken}`
@@ -92,18 +145,36 @@ function wireServer(
       state.notify();
     }
   });
+  const settings: SettingsState = {
+    current: () => state.settings,
+    update: async (change) => {
+      const next = mergeSettings(state.settings, change, look.themes);
+      const piTheme = piThemeOf(look, next);
+      const themeChanged = piTheme !== undefined && piTheme !== piThemeOf(look, state.settings);
+      state.settings = next;
+      await saveSettings(look.settingsPath, next);
+      if (themeChanged) hub.broadcast({ theme: piTheme });
+      state.notifySettings(next);
+      return next;
+    }
+  };
   const web = createWebServer({
     hub,
     token,
     statusToken,
     title: app.name,
-    theme: options.theme ?? catppuccinLatte,
-    fontFamily: options.fontFamily ?? defaultFontFamily,
+    themes: look.themes,
+    settings,
+    fontFamily: look.fontFamily,
+    logo: look.logo,
     assets: webAssets(),
     hosts: [...(options.host === undefined ? [] : [options.host]), ...(options.allowedHosts ?? [])]
   });
   state.notify = () => {
     web.notify();
+  };
+  state.notifySettings = (next) => {
+    web.notifySettings(next);
   };
   return {
     hub,
@@ -185,8 +256,12 @@ function ptySpawner(
 }
 
 /** The files the page needs: the built UI and the ghostty-web terminal. */
+function uiDir(): string {
+  return fileURLToPath(new URL("../ui/", import.meta.url));
+}
+
 export function webAssets(): Readonly<Record<string, string>> {
-  const uiDir = fileURLToPath(new URL("../ui/", import.meta.url));
+  const ui = uiDir();
   const require = createRequire(import.meta.url);
   const ghosttyDir = dirname(require.resolve("ghostty-web"));
   const font = (file: string): string =>
@@ -196,9 +271,9 @@ export function webAssets(): Readonly<Record<string, string>> {
     "/fonts/monaspace-argon-400-italic.woff2": font("400-italic"),
     "/fonts/monaspace-argon-700.woff2": font("700-normal"),
     "/fonts/monaspace-argon-700-italic.woff2": font("700-italic"),
-    "/index.html": join(uiDir, "index.html"),
-    "/app.js": join(uiDir, "app.js"),
-    "/style.css": join(uiDir, "style.css"),
+    "/index.html": join(ui, "index.html"),
+    "/app.js": join(ui, "app.js"),
+    "/style.css": join(ui, "style.css"),
     "/vendor/ghostty-web.js": join(ghosttyDir, "ghostty-web.js"),
     "/ghostty-vt.wasm": join(ghosttyDir, "ghostty-vt.wasm")
   };

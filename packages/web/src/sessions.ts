@@ -24,12 +24,14 @@ export type SessionHubDeps = {
   /** Name a stored session that no process holds open. */
   readonly renameStored: (path: string, name: string) => Promise<void>;
   readonly deleteStored: (path: string) => Promise<void>;
+  /** Requests every new session gets once it starts, such as the current Pi theme. */
+  readonly startControls?: () => readonly SessionControl[];
   readonly onChange: () => void;
   readonly now?: () => number;
 };
 
 /** A request for a live session's Pi, picked up by its status extension. */
-export type SessionControl = { readonly rename: string };
+export type SessionControl = { readonly rename: string } | { readonly theme: string };
 
 /** One viewer of a live session. */
 export type SessionViewer = {
@@ -106,6 +108,7 @@ export class SessionHub {
       rows: defaultRows
     };
     this.live.set(key, session);
+    for (const control of this.deps.startControls?.() ?? []) this.sendControl(session, control);
     terminal.onData((data) => {
       this.record(session, data);
     });
@@ -228,6 +231,11 @@ export class SessionHub {
       };
       session.waiter = finish;
     });
+  }
+
+  /** Send a request to every live session. */
+  broadcast(control: SessionControl): void {
+    for (const session of this.live.values()) this.sendControl(session, control);
   }
 
   stopAll(): void {
