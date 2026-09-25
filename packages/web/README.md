@@ -29,20 +29,29 @@ process.exitCode = await runPiWebApp(app, { port: 8421 });
   release that emits `ui_prompt_start` (Pi 0.87 does); an older Pi shows only responding and idle.
   The extension writes nothing to the session except a rename that the page asks for, which it
   applies through `pi.setSessionName`.
+- **Settings.** A settings button at the bottom left of the sidebar picks the theme, the accent
+  color, and the terminal font size. Settings apply to the whole server, because every viewer sees
+  the same Pi sessions, and they persist in `<stateDir>/pi-factory-web/settings.json`. A theme
+  choice with a Pi theme name also switches every session's Pi theme through `ctx.ui.setTheme`, and
+  new sessions start with it.
+- **Logo.** The sidebar header and the favicon show the app's logo: the `logo` option, else the
+  manifest's `logo`, else the Pi logo from the [Pi press kit](https://pi.dev/press-kit) (MIT).
 - **Fullscreen TUI.** Pi sends mouse clicks to extensions only in its fullscreen mode, so the runner
   adds `--tui-mode fullscreen` unless the app forwards its own `--tui-mode`.
 
 ## Options
 
-| Option         | Default                  | Meaning                                                           |
-| -------------- | ------------------------ | ----------------------------------------------------------------- |
-| `host`         | `127.0.0.1`              | Address to listen on, for example a Tailscale address.            |
-| `allowedHosts` | none                     | Extra host names for the page, such as a Tailscale MagicDNS name. |
-| `port`         | `0`                      | Port; `0` picks a free port.                                      |
-| `open`         | `true`                   | Open the page in the default browser.                             |
-| `cwd`          | app root or current dir  | Working directory for new sessions and for the session list.      |
-| `theme`        | Catppuccin Latte         | Page and terminal colors.                                         |
-| `onReady`      | prints the URL to stderr | Called with the page URL.                                         |
+| Option         | Default                     | Meaning                                                                                                                                           |
+| -------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host`         | `127.0.0.1`                 | Address to listen on, for example a Tailscale address.                                                                                            |
+| `allowedHosts` | none                        | Extra host names for the page, such as a Tailscale MagicDNS name.                                                                                 |
+| `port`         | `0`                         | Port; `0` picks a free port.                                                                                                                      |
+| `open`         | `true`                      | Open the page in the default browser.                                                                                                             |
+| `cwd`          | app root or current dir     | Working directory for new sessions and for the session list.                                                                                      |
+| `themes`       | the four Catppuccin flavors | Theme choices for the settings panel. `catppuccinThemeChoices(piThemes)` builds the Catppuccin ones, optionally with the matching Pi theme names. |
+| `defaultTheme` | first choice                | Theme id until the user picks one.                                                                                                                |
+| `logo`         | app logo, else Pi logo      | Image file for the sidebar and the favicon.                                                                                                       |
+| `onReady`      | prints the URL to stderr    | Called with the page URL.                                                                                                                         |
 
 `runPiWebApp` serves until the process gets SIGINT or SIGTERM and returns an exit code.
 `startPiWebApp` returns a handle with the URL and `close()`, for tests and embedding.

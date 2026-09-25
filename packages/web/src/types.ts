@@ -28,6 +28,24 @@ export type PiWebTheme = {
   readonly brightWhite: string;
 };
 
+/** One theme in the settings panel. */
+export type PiWebThemeChoice = {
+  readonly id: string;
+  readonly label: string;
+  readonly theme: PiWebTheme;
+  /** Accent colors the user can pick, by name. Empty means the theme's own accent only. */
+  readonly accents: Readonly<Record<string, string>>;
+  /** Name of the matching Pi theme, which the app loads. Omit to leave Pi's theme alone. */
+  readonly piTheme?: string;
+};
+
+/** Settings that the page changes. They apply to the whole server, because viewers share Pi. */
+export type PiWebSettings = {
+  readonly theme: string;
+  readonly accent: string | undefined;
+  readonly fontSize: number;
+};
+
 export type PiWebOptions = {
   /**
    * Interface to listen on. Default: 127.0.0.1. A non-loopback address, such as a Tailscale
@@ -42,8 +60,15 @@ export type PiWebOptions = {
   readonly open?: boolean;
   /** Working directory for new Pi sessions. Default: the app root or the current directory. */
   readonly cwd?: string;
-  /** Page and terminal colors. Default: Catppuccin Latte. */
-  readonly theme?: PiWebTheme;
+  /**
+   * Themes the settings panel offers. Default: the four Catppuccin flavors. A choice with a
+   * `piTheme` also switches the Pi theme of every session, so the app must load that Pi theme.
+   */
+  readonly themes?: readonly PiWebThemeChoice[];
+  /** Theme id to start with until the user picks one. Default: the first choice. */
+  readonly defaultTheme?: string;
+  /** Logo image for the sidebar and the favicon. Default: the app's logo, else the Pi logo. */
+  readonly logo?: string;
   /** CSS font list for the terminal. Default: Monaspace Argon, served by the package. */
   readonly fontFamily?: string;
   /** Called with the page URL once the server listens. */

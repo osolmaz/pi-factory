@@ -37,6 +37,7 @@ type TopLevelManifestFields = Pick<
   | "thinking"
   | "tools"
   | "system_prompt"
+  | "logo"
   | "env"
 >;
 
@@ -125,6 +126,7 @@ function readTopLevelFields(
   const piCommand = piCommandField(value, errors);
   const tools = stringArrayField(value, "tools", false, errors);
   const systemPrompt = optionalString(value, "system_prompt", errors);
+  const logo = optionalString(value, "logo", errors);
   const env = recordStringField(value, "env", false, errors);
   fields.id = id as string;
   fields.name = stringField(value, "name", errors) as string;
@@ -137,6 +139,7 @@ function readTopLevelFields(
   assignDefined(fields, "thinking", thinking as PiThinkingLevel | undefined);
   assignDefined(fields, "tools", tools);
   assignDefined(fields, "system_prompt", systemPrompt);
+  assignDefined(fields, "logo", logo);
   assignDefined(fields, "env", env);
   return fields as TopLevelManifestFields;
 }
@@ -355,6 +358,7 @@ export async function manifestToDefinition(
   assignDefined(app, "description", manifest.description);
   assignDefined(app, "tools", manifest.tools?.join(","));
   assignDefined(app, "systemPrompt", await systemPromptText(manifest, appRoot));
+  assignDefined(app, "logo", optionalExpandPath(manifest.logo, appRoot));
   assignDefined(app, "env", manifest.env);
   assignDefined(app, "build", manifest.build);
   if (manifest.inherit !== undefined) {

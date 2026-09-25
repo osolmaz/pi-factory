@@ -21,6 +21,8 @@ Common optional fields are:
 - `thinking`
 - `tools`
 - `system_prompt`
+- `logo`: an image file, relative to the bundle root, that front ends such as web mode show. Web
+  mode falls back to the Pi logo.
 - `[env]`
 - `[inherit]`
 - `[[inherit.packages]]`

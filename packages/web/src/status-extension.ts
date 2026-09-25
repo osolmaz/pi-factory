@@ -11,13 +11,16 @@ export const controlUrlEnv = "PI_FACTORY_WEB_CONTROL_URL";
  *
  * It reports public Pi events. It also long-polls a control URL and applies the page's requests
  * through public Pi APIs: a rename becomes pi.setSessionName, so Pi itself writes the session_info
- * entry. The URLs, with their key and token, come from the environment of the Pi process, so one
+ * entry, and a theme change becomes ctx.ui.setTheme. The URLs, with their key and token, come from the environment of the Pi process, so one
  * generated file serves every session. The extension uses a minimal local type, so it works across
  * Pi versions: an event that an older Pi does not emit simply never fires.
  */
 export function statusExtensionSource(): string {
   return `type Handler = (event: Record<string, unknown>, ctx: StatusContext) => unknown;
-type StatusContext = { readonly sessionManager: { getSessionFile(): string | undefined } };
+type StatusContext = {
+  readonly sessionManager: { getSessionFile(): string | undefined };
+  readonly ui: { setTheme(name: string): unknown };
+};
 type StatusApi = {
   on(event: string, handler: Handler): void;
   getSessionName(): string | undefined;
@@ -42,13 +45,15 @@ export default function piFactoryWebStatus(pi: StatusApi): void {
 
   let polling = false;
   let stopped = false;
+  let context: StatusContext | undefined;
   const poll = async (): Promise<void> => {
     while (!stopped && controlUrl !== undefined && controlUrl !== "") {
       try {
         const response = await fetch(controlUrl);
         if (response.status === 200) {
-          const request = (await response.json()) as { rename?: unknown };
+          const request = (await response.json()) as { rename?: unknown; theme?: unknown };
           if (typeof request.rename === "string") pi.setSessionName(request.rename);
+          if (typeof request.theme === "string") context?.ui.setTheme(request.theme);
         } else if (response.status !== 204) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
@@ -63,6 +68,7 @@ export default function piFactoryWebStatus(pi: StatusApi): void {
   });
   pi.on("session_start", (_event, ctx) => {
     stopped = false;
+    context = ctx;
     if (!polling) {
       polling = true;
       void poll().finally(() => {

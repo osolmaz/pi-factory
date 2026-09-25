@@ -43,12 +43,13 @@ describe("generated status extension", () => {
         return new Response(null, { status: 204 });
       }
       controls += 1;
-      return controls === 1
-        ? Response.json({ rename: "Renamed" })
-        : new Promise<Response>(() => undefined);
+      if (controls === 1) return Response.json({ rename: "Renamed" });
+      if (controls === 2) return Response.json({ theme: "cat-mocha" });
+      return new Promise<Response>(() => undefined);
     });
     const handlers = new Map<string, Handler>();
     const names: string[] = [];
+    const themesSet: string[] = [];
     const extension = await loadExtension();
     extension({
       on: (event: string, handler: Handler) => handlers.set(event, handler),
@@ -56,7 +57,10 @@ describe("generated status extension", () => {
       setSessionName: (name: string) => names.push(name)
     });
 
-    const ctx = { sessionManager: { getSessionFile: () => "/s/a.jsonl" } };
+    const ctx = {
+      sessionManager: { getSessionFile: () => "/s/a.jsonl" },
+      ui: { setTheme: (name: string) => themesSet.push(name) }
+    };
     const fire = (event: string, payload: Record<string, unknown> = {}): void => {
       const handler = handlers.get(event);
       if (handler === undefined) throw new Error(`no handler for ${event}`);
@@ -76,6 +80,7 @@ describe("generated status extension", () => {
     fire("session_info_changed", { name: "Renamed" });
     await vi.waitFor(() => {
       expect(names).toEqual(["Renamed"]);
+      expect(themesSet).toEqual(["cat-mocha"]);
     });
     fire("session_shutdown");
 

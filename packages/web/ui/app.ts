@@ -4,6 +4,17 @@ type GhosttyModule = typeof import("ghostty-web");
 
 type Theme = Record<string, string>;
 
+type ThemeChoice = {
+  readonly id: string;
+  readonly label: string;
+  readonly theme: Theme;
+  readonly accents: Record<string, string>;
+};
+
+type Settings = { theme: string; accent: string | undefined; fontSize: number };
+
+const fontSizes = [11, 12, 13, 14, 15, 16, 18, 20];
+
 type SessionSummary = {
   readonly key: string;
   readonly title: string;
@@ -27,6 +38,8 @@ const element = (id: string): HTMLElement => document.getElementById(id) as HTML
 
 let ghostty: GhosttyModule | undefined;
 let theme: Theme = {};
+let themes: readonly ThemeChoice[] = [];
+let settings: Settings = { theme: "", accent: undefined, fontSize: 14 };
 let fontFamily = "monospace";
 let sessions: readonly SessionSummary[] = [];
 let attached: Attached | undefined;
@@ -36,16 +49,20 @@ let renaming = false;
 async function main(): Promise<void> {
   const [module, config] = await Promise.all([
     import(ghosttyPath) as Promise<GhosttyModule>,
-    api<{ title: string; theme: Theme; fontFamily: string }>("GET", "/api/config")
+    api<{ title: string; themes: ThemeChoice[]; settings: Settings; fontFamily: string }>(
+      "GET",
+      "/api/config"
+    )
   ]);
   fontFamily = config.fontFamily;
   await loadFonts(config.fontFamily);
   await module.init();
   ghostty = module;
-  theme = config.theme;
+  themes = config.themes;
   document.title = config.title;
   element("app-title").textContent = config.title;
-  applyTheme(config.theme);
+  applySettings(config.settings);
+  setUpSettingsPanel();
   element("new-session").addEventListener("click", () => {
     void openSession(undefined);
   });
@@ -66,7 +83,92 @@ async function loadFonts(family: string): Promise<void> {
   await Promise.allSettled(loads);
 }
 
-function applyTheme(colors: Theme): void {
+// Apply settings from the server: page colors, accent, and a terminal view with the new look.
+function applySettings(next: Settings): void {
+  const changedTerminal = next.theme !== settings.theme || next.fontSize !== settings.fontSize;
+  settings = next;
+  const choice = themes.find((entry) => entry.id === next.theme) ?? themes[0];
+  theme = choice?.theme ?? {};
+  applyTheme(theme, accentColor(choice, next.accent));
+  renderSettingsPanel();
+  if (changedTerminal && attached !== undefined) {
+    const key = attached.key;
+    detach();
+    attach(key);
+  }
+}
+
+function accentColor(
+  choice: ThemeChoice | undefined,
+  name: string | undefined
+): string | undefined {
+  return name === undefined ? undefined : choice?.accents[name];
+}
+
+function setUpSettingsPanel(): void {
+  const button = element("settings-button");
+  const panel = element("settings-panel");
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    panel.hidden = !panel.hidden;
+    button.setAttribute("aria-expanded", String(!panel.hidden));
+  });
+  panel.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  document.addEventListener("click", () => {
+    panel.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+  });
+  element("theme-select").addEventListener("change", (event) => {
+    void changeSettings({ theme: (event.target as HTMLSelectElement).value });
+  });
+  element("font-size-select").addEventListener("change", (event) => {
+    void changeSettings({ fontSize: Number((event.target as HTMLSelectElement).value) });
+  });
+}
+
+function renderSettingsPanel(): void {
+  const select = element("theme-select") as HTMLSelectElement;
+  select.replaceChildren(...themes.map((choice) => option(choice.id, choice.label)));
+  select.value = settings.theme;
+  const sizes = element("font-size-select") as HTMLSelectElement;
+  sizes.replaceChildren(...fontSizes.map((size) => option(String(size), `${String(size)} px`)));
+  sizes.value = String(settings.fontSize);
+  const accents = themes.find((entry) => entry.id === settings.theme)?.accents ?? {};
+  element("accent-swatches").replaceChildren(
+    ...Object.entries(accents).map(([name, color]) => swatch(name, color))
+  );
+}
+
+function option(value: string, label: string): HTMLOptionElement {
+  const item = document.createElement("option");
+  item.value = value;
+  item.textContent = label;
+  return item;
+}
+
+function swatch(name: string, color: string): HTMLElement {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "swatch";
+  item.style.background = color;
+  item.title = name;
+  item.setAttribute("role", "radio");
+  item.setAttribute("aria-label", name);
+  item.setAttribute("aria-checked", String(settings.accent === name));
+  item.addEventListener("click", () => {
+    void changeSettings({ accent: settings.accent === name ? null : name });
+  });
+  return item;
+}
+
+async function changeSettings(change: Record<string, unknown>): Promise<void> {
+  const result = await api<{ settings: Settings }>("POST", "/api/settings", change);
+  applySettings(result.settings);
+}
+
+function applyTheme(colors: Theme, accent: string | undefined): void {
   const root = document.documentElement.style;
   const variables: Record<string, string | undefined> = {
     "--background": colors["background"],
@@ -74,7 +176,7 @@ function applyTheme(colors: Theme): void {
     "--sidebar-background": colors["sidebarBackground"],
     "--sidebar-foreground": colors["sidebarForeground"],
     "--muted": colors["mutedForeground"],
-    "--accent": colors["accent"],
+    "--accent": accent ?? colors["accent"],
     "--selected": colors["selectedBackground"],
     "--border": colors["border"],
     "--waiting": colors["yellow"]
@@ -87,11 +189,15 @@ function applyTheme(colors: Theme): void {
 function connectEvents(): void {
   const socket = new WebSocket(socketUrl("/api/events"));
   socket.addEventListener("message", (event) => {
-    const message = JSON.parse(String(event.data)) as { sessions?: SessionSummary[] };
+    const message = JSON.parse(String(event.data)) as {
+      sessions?: SessionSummary[];
+      settings?: Settings;
+    };
     if (message.sessions !== undefined) {
       sessions = message.sessions;
       renderSessions();
     }
+    if (message.settings !== undefined) applySettings(message.settings);
   });
   socket.addEventListener("close", () => {
     window.setTimeout(connectEvents, 1000);
@@ -252,7 +358,7 @@ function attach(key: string): void {
   }
   detach();
   const term = new ghostty.Terminal({
-    fontSize: 14,
+    fontSize: settings.fontSize,
     fontFamily,
     cursorBlink: true,
     theme: terminalTheme()

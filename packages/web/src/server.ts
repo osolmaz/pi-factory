@@ -5,7 +5,14 @@ import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
 
 import type { SessionHub } from "./sessions.js";
-import type { PiWebTheme, SessionStatus, StatusUpdate } from "./types.js";
+import type { PiWebSettings, PiWebThemeChoice, SessionStatus, StatusUpdate } from "./types.js";
+
+/** The server-wide settings, which the page reads and changes. */
+export type SettingsState = {
+  current(): PiWebSettings;
+  /** Validate and apply a change from the page; throws on a bad value. */
+  update(change: unknown): Promise<PiWebSettings>;
+};
 
 export type WebServerDeps = {
   readonly hub: SessionHub;
@@ -14,8 +21,11 @@ export type WebServerDeps = {
   /** Required on status updates, which come from Pi processes, not from the page. */
   readonly statusToken: string;
   readonly title: string;
-  readonly theme: PiWebTheme;
+  readonly themes: readonly PiWebThemeChoice[];
+  readonly settings: SettingsState;
   readonly fontFamily: string;
+  /** Image file for the sidebar logo and the favicon. */
+  readonly logo: string;
   /** Maps a public path such as `/app.js` to a file on disk. */
   readonly assets: Readonly<Record<string, string>>;
   /** Host names the server answers to, besides the loopback names. */
@@ -26,6 +36,8 @@ export type WebServer = {
   readonly server: Server;
   /** Send the current session list to every open page. */
   notify(): void;
+  /** Send changed settings to every open page. */
+  notifySettings(settings: PiWebSettings): void;
   close(): Promise<void>;
 };
 
@@ -38,7 +50,13 @@ const contentTypes: Readonly<Record<string, string>> = {
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".wasm": "application/wasm",
-  ".woff2": "font/woff2"
+  ".woff2": "font/woff2",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon"
 };
 
 class HttpError extends Error {
@@ -86,7 +104,11 @@ export function createWebServer(deps: WebServerDeps): WebServer {
       });
     });
   };
-  return { server, notify, close };
+  const notifySettings = (settings: PiWebSettings): void => {
+    const message = JSON.stringify({ type: "settings", settings });
+    for (const page of pages) page.send(message);
+  };
+  return { server, notify, notifySettings, close };
 }
 
 type Upgrade = {
@@ -145,7 +167,21 @@ async function handleApi(
 ): Promise<void> {
   const route = `${request.method ?? "GET"} ${url.pathname}`;
   if (route === "GET /api/config") {
-    sendJson(response, 200, { title: deps.title, theme: deps.theme, fontFamily: deps.fontFamily });
+    sendJson(response, 200, {
+      title: deps.title,
+      themes: deps.themes,
+      settings: deps.settings.current(),
+      fontFamily: deps.fontFamily
+    });
+    return;
+  }
+  if (route === "POST /api/settings") {
+    const change = await readJson(request);
+    try {
+      sendJson(response, 200, { settings: await deps.settings.update(change) });
+    } catch (error) {
+      throw new HttpError(400, error instanceof Error ? error.message : String(error));
+    }
     return;
   }
   if (route === "GET /api/sessions") {
@@ -225,14 +261,14 @@ export function parseStatusUpdate(value: unknown): StatusUpdate {
 
 async function serveAsset(deps: WebServerDeps, response: ServerResponse, url: URL): Promise<void> {
   const path = url.pathname === "/" ? "/index.html" : url.pathname;
-  const file = deps.assets[path];
+  const file = path === "/logo" ? deps.logo : deps.assets[path];
   if (file === undefined) {
     throw new HttpError(404, "not found");
   }
   if (path === "/index.html") {
     requireToken(url, deps.token);
   }
-  const extension = path.slice(path.lastIndexOf("."));
+  const extension = file.slice(file.lastIndexOf(".")).toLowerCase();
   response.writeHead(200, {
     "content-type": contentTypes[extension] ?? "application/octet-stream",
     "cache-control": "no-store"

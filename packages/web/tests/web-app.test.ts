@@ -9,6 +9,7 @@ import type { PiAppDefinition } from "@osolmaz/pi-factory";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 
+import { catppuccinThemeChoices } from "../src/theme.js";
 import { startPiWebApp, type PiWebApp } from "../src/web-app.js";
 import type { SessionSummary } from "../src/types.js";
 
@@ -125,6 +126,25 @@ async function waitForSessions(
   throw new Error(`sessions never matched: ${JSON.stringify(events.sessionUpdates().at(-1))}`);
 }
 
+function startedFrom(web: PiWebApp, stateDir: string): Started {
+  const url = new URL(web.url);
+  return {
+    web,
+    base: url.origin,
+    token: url.searchParams.get("token") ?? "",
+    stateDir,
+    cwd: stateDir
+  };
+}
+
+async function until(check: () => boolean): Promise<void> {
+  const end = Date.now() + 10_000;
+  while (!check()) {
+    if (Date.now() > end) throw new Error("condition never became true");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 async function writeStoredSession(sessionDir: string, cwd: string, text: string): Promise<string> {
   const file = path.join(sessionDir, "2026-09-24T10-00-00-000Z_stored.jsonl");
   const time = "2026-09-24T10:00:00.000Z";
@@ -189,13 +209,26 @@ describe("pi-factory web app", () => {
     expect(font.headers.get("content-type")).toBe("font/woff2");
     expect((await fetch(`${started.base}/api/sessions`)).status).toBe(403);
     expect((await fetch(`${started.base}/missing.js`)).status).toBe(404);
-    expect(
-      await api<{ title: string; theme: { background: string } }>(started, "GET", "/api/config")
-    ).toMatchObject({
+    const config = await api<{
+      title: string;
+      themes: { id: string }[];
+      settings: unknown;
+      fontFamily: string;
+    }>(started, "GET", "/api/config");
+    expect(config).toMatchObject({
       title: "Web Test",
-      theme: { background: "#eff1f5" },
+      settings: { theme: "catppuccin-latte", fontSize: 14 },
       fontFamily: '"Monaspace Argon", ui-monospace, Menlo, Consolas, monospace'
     });
+    expect(config.themes.map((choice) => choice.id)).toEqual([
+      "catppuccin-latte",
+      "catppuccin-frappe",
+      "catppuccin-macchiato",
+      "catppuccin-mocha"
+    ]);
+    const logo = await fetch(`${started.base}/logo`);
+    expect(logo.headers.get("content-type")).toBe("image/svg+xml");
+    expect(await logo.text()).toContain("pi.dev/press-kit");
   });
 
   it("starts a new session in fullscreen with the status extension and talks to it", async () => {
@@ -306,6 +339,67 @@ describe("pi-factory web app", () => {
       body: JSON.stringify({ key })
     });
     expect(missingName.status).toBe(400);
+  });
+
+  it("saves settings, tells the pages, and switches the Pi theme of every session", async () => {
+    const stateDir = await tempDir("pi-factory-web-state-");
+    const logo = path.join(stateDir, "logo.png");
+    await writeFile(logo, "png", "utf8");
+    const themes = catppuccinThemeChoices({ latte: "catppuccin-latte", mocha: "catppuccin-mocha" });
+    const web = await startPiWebApp(app(stateDir, { logo } as Partial<PiAppDefinition>), {
+      open: false,
+      cwd: stateDir,
+      themes
+    });
+    cleanup.push(() => web.close());
+    const started = startedFrom(web, stateDir);
+    expect((await fetch(`${started.base}/logo`)).headers.get("content-type")).toBe("image/png");
+
+    const { key } = await api<{ key: string }>(started, "POST", "/api/sessions", {});
+    const term = terminal(started, key);
+    await term.opened();
+    await term.waitFor(/THEME:catppuccin-latte/u);
+    const events = new Socket(started, `/api/events?token=${started.token}`);
+    await events.opened();
+
+    const changed = await api<{ settings: unknown }>(started, "POST", "/api/settings", {
+      theme: "catppuccin-mocha",
+      accent: "peach",
+      fontSize: 16
+    });
+    expect(changed.settings).toEqual({ theme: "catppuccin-mocha", accent: "peach", fontSize: 16 });
+    await term.waitFor(/THEME:catppuccin-mocha/u);
+    await until(() => events.text.some((entry) => entry.includes('"type":"settings"')));
+
+    const frappe = await api<{ settings: unknown }>(started, "POST", "/api/settings", {
+      theme: "catppuccin-frappe"
+    });
+    expect(frappe.settings).toEqual({ theme: "catppuccin-frappe", accent: "peach", fontSize: 16 });
+    const bad = await fetch(`${started.base}/api/settings?token=${started.token}`, {
+      method: "POST",
+      body: JSON.stringify({ fontSize: 99 })
+    });
+    expect(bad.status).toBe(400);
+
+    const again = await startPiWebApp(app(stateDir), { open: false, cwd: stateDir, themes });
+    cleanup.push(() => again.close());
+    const restarted = startedFrom(again, stateDir);
+    const config = await api<{ settings: unknown }>(restarted, "GET", "/api/config");
+    expect(config.settings).toEqual({ theme: "catppuccin-frappe", accent: "peach", fontSize: 16 });
+  });
+
+  it("refuses to start with a missing logo or an unknown default theme", async () => {
+    const stateDir = await tempDir("pi-factory-web-state-");
+    const options = { open: false, cwd: stateDir };
+    await expect(
+      startPiWebApp(app(stateDir), { ...options, logo: "/nope/logo.svg" })
+    ).rejects.toThrow("logo not found: /nope/logo.svg");
+    await expect(
+      startPiWebApp(app(stateDir), { ...options, defaultTheme: "neon" })
+    ).rejects.toThrow("unknown default theme neon");
+    await expect(startPiWebApp(app(stateDir), { ...options, themes: [] })).rejects.toThrow(
+      "web mode needs at least one theme"
+    );
   });
 
   it("replays output and redraws for a viewer that attaches later", async () => {
