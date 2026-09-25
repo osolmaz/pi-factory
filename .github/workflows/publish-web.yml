@@ -1,4 +1,4 @@
-name: Publish
+name: Publish web
 
 on:
   release:
@@ -11,8 +11,9 @@ permissions:
 
 jobs:
   npm:
-    # Web releases use the tag web-v<version> and are published by publish-web.yml.
-    if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref_name, 'web-v')
+    # Web releases use the tag web-v<version>; publish.yml handles the root package and
+    # skips those tags. A manual run publishes whatever version the package manifest holds.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref_name, 'web-v')
     # npm trusted publishing + provenance requires a GitHub-hosted runner.
     runs-on: ubuntu-latest
     permissions:
@@ -34,8 +35,8 @@ jobs:
           node - <<'NODE'
           const { readFileSync } = require("node:fs");
 
-          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-          const expectedName = "@osolmaz/pi-factory";
+          const pkg = JSON.parse(readFileSync("packages/web/package.json", "utf8"));
+          const expectedName = "@osolmaz/pi-factory-web";
           const expectedRepoUrl = "https://github.com/osolmaz/pi-factory";
 
           const normalizeRepoUrl = (value) =>
@@ -46,7 +47,6 @@ jobs:
               .replace(/\/+$/, "");
 
           const actualRepoUrl = normalizeRepoUrl(pkg?.repository?.url);
-          const expectedRepoUrlNormalized = normalizeRepoUrl(expectedRepoUrl);
           const errors = [];
 
           if (pkg?.name !== expectedName) {
@@ -55,18 +55,23 @@ jobs:
           if (pkg?.private === true) {
             errors.push("package.json must not be private for npm publishing.");
           }
-          if (actualRepoUrl !== expectedRepoUrlNormalized) {
+          if (actualRepoUrl !== expectedRepoUrl) {
             errors.push(
-              `package.json repository.url must resolve to ${expectedRepoUrlNormalized}; found ${actualRepoUrl || "<missing>"}`
+              `package.json repository.url must resolve to ${expectedRepoUrl}; found ${actualRepoUrl || "<missing>"}`
+            );
+          }
+          if (pkg?.repository?.directory !== "packages/web") {
+            errors.push(
+              `package.json repository.directory must be packages/web; found ${pkg?.repository?.directory ?? "<missing>"}`
             );
           }
           if (pkg?.publishConfig?.access !== "public") {
             errors.push("package.json publishConfig.access must be public.");
           }
-          if (pkg?.bin?.["pi-factory"] !== "dist/src/cli/main.js") {
-            errors.push(
-              `package.json bin.pi-factory must be dist/src/cli/main.js; found ${pkg?.bin?.["pi-factory"] ?? "<missing>"}`
-            );
+          for (const entry of ["dist/src/**", "dist/ui/**", "README.md", "LICENSE"]) {
+            if (!Array.isArray(pkg?.files) || !pkg.files.includes(entry)) {
+              errors.push(`package.json files must include ${entry}.`);
+            }
           }
 
           if (errors.length > 0) {
@@ -76,35 +81,42 @@ jobs:
             process.exit(1);
           }
 
-          console.log("Package metadata validated.");
+          console.log(`Package metadata validated for ${expectedName}@${pkg.version}.`);
           NODE
       - name: Verify release tag
         if: github.event_name == 'release'
         run: |
-          version="$(node -p "require('./package.json').version")"
+          version="$(node -p "require('./packages/web/package.json').version")"
           tag="${GITHUB_REF_NAME}"
-          if [ "$tag" != "v$version" ] && [ "$tag" != "$version" ]; then
-            echo "Release tag $tag does not match package version $version." >&2
+          if [ "$tag" != "web-v$version" ] && [ "$tag" != "web-$version" ]; then
+            echo "Release tag $tag does not match the web package version $version." >&2
+            exit 1
+          fi
+      - name: Require the release commit on the default branch
+        if: github.event_name == 'release'
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "The tagged commit is not on main; release from the default branch." >&2
             exit 1
           fi
       - name: Check whether the version needs publishing
         id: release
         run: |
           set -euo pipefail
-          package_version="$(node -p "require('./package.json').version")"
-          published_version="$(npm view "@osolmaz/pi-factory@$package_version" version 2>/dev/null || true)"
+          package_version="$(node -p "require('./packages/web/package.json').version")"
+          published_version="$(npm view "@osolmaz/pi-factory-web@$package_version" version 2>/dev/null || true)"
 
           if [ "$published_version" = "$package_version" ]; then
-            echo "@osolmaz/pi-factory@$package_version is already published; skipping upload."
+            echo "@osolmaz/pi-factory-web@$package_version is already published; skipping upload."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Publishing @osolmaz/pi-factory@$package_version"
+            echo "Publishing @osolmaz/pi-factory-web@$package_version"
             echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
-      - run: npm run check
-      - uses: osolmaz/slophammer@main
-        with:
-          checker: ts
-          version: 0.4.0
+      # The package's prepublishOnly script runs `npm run check` before the upload, so a
+      # failing check stops the publish here.
       - if: steps.release.outputs.publish == 'true'
+        working-directory: packages/web
         run: npm publish --access public --provenance
