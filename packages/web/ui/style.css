@@ -1,0 +1,230 @@
+:root {
+  --background: #eff1f5;
+  --foreground: #4c4f69;
+  --sidebar-background: #e6e9ef;
+  --sidebar-foreground: #4c4f69;
+  --muted: #6c6f85;
+  --accent: #8839ef;
+  --selected: #ccd0da;
+  --border: #bcc0cc;
+  --waiting: #df8e1d;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  min-width: 200px;
+  padding: 12px 8px;
+  gap: 8px;
+  background: var(--sidebar-background);
+  color: var(--sidebar-foreground);
+  border-right: 1px solid var(--border);
+}
+
+#app-title {
+  padding: 4px 8px 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+#new-session {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+#new-session:hover {
+  border-color: var(--accent);
+}
+
+#sessions {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.group {
+  padding: 12px 8px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session:hover,
+.session:focus-visible {
+  background: var(--selected);
+  outline: none;
+}
+
+.session.selected {
+  background: var(--selected);
+  font-weight: 500;
+}
+
+.session .title {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.more {
+  flex: none;
+  visibility: hidden;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.session:hover .more,
+.session.selected .more,
+.more:focus-visible {
+  visibility: visible;
+}
+
+.more:hover {
+  background: var(--border);
+  color: var(--foreground);
+}
+
+.rename {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+}
+
+#menu {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
+}
+
+#menu button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+#menu button:hover,
+#menu button:focus-visible {
+  background: var(--selected);
+  outline: none;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot.responding {
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.dot.waiting {
+  background: var(--waiting);
+}
+
+.dot.starting {
+  background: var(--muted);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+#main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+#terminal {
+  position: absolute;
+  inset: 8px 0 0 12px;
+}
+
+#empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+#empty[hidden] {
+  display: none;
+}

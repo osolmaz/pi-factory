@@ -1,0 +1,57 @@
+{
+  "name": "@osolmaz/pi-factory-web",
+  "version": "0.1.0",
+  "description": "Run a pi-factory app in the browser: a session list and the app's Pi TUI in a web terminal.",
+  "keywords": [
+    "pi",
+    "pi-factory",
+    "pi-coding-agent",
+    "web",
+    "terminal"
+  ],
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osolmaz/pi-factory.git",
+    "directory": "packages/web"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src/**",
+    "dist/ui/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p ui/tsconfig.json && node scripts/copy-ui.mjs",
+    "format": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p ui/tsconfig.json",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "dry": "slophammer-ts dry .",
+    "mutate": "stryker run",
+    "check": "npm run format && npm run lint && npm run typecheck && npm run build && npm test && npm run coverage && npm run dry",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@osolmaz/pi-factory": "^0.7.0",
+    "ghostty-web": "0.4.0-next.20.g1858a59",
+    "node-pty": "1.1.0",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

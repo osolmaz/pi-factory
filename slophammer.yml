@@ -10,6 +10,8 @@ typescript:
     exclude:
       - pattern: "src/types.ts"
         reason: Shared TypeScript type declarations have no executable logic to deduplicate
+      - pattern: "packages/web/**"
+        reason: The web package is its own project with its own slophammer.yml and CI step
     copied_blocks:
       enabled: true
       min_tokens: 100

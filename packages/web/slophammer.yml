@@ -1,0 +1,21 @@
+typescript:
+  coverage:
+    threshold: 85
+  complexity:
+    max: 8
+  dry:
+    max_findings: 0
+    paths:
+      - src
+      - ui
+    exclude:
+      - pattern: "src/types.ts"
+        reason: Shared TypeScript type declarations have no executable logic to deduplicate
+    copied_blocks:
+      enabled: true
+      min_tokens: 100
+  mutation:
+    targets:
+      - src/sessions.ts
+      - src/server.ts
+      - src/web-app.ts
