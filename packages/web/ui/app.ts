@@ -415,7 +415,10 @@ function osc52Reader(): (data: string) => void {
     pending = "";
     for (;;) {
       const start = text.indexOf(osc52Start);
-      if (start < 0) return;
+      if (start < 0) {
+        pending = partialPrefix(text);
+        return;
+      }
       const rest = text.slice(start);
       const end = osc52End(rest);
       if (end === undefined) {
@@ -426,6 +429,15 @@ function osc52Reader(): (data: string) => void {
       text = rest.slice(end.index + end.length);
     }
   };
+}
+
+// The end of a message can hold the first characters of the prefix; keep them for the next one.
+function partialPrefix(text: string): string {
+  for (let length = Math.min(osc52Start.length - 1, text.length); length > 0; length -= 1) {
+    const tail = text.slice(-length);
+    if (osc52Start.startsWith(tail)) return tail;
+  }
+  return "";
 }
 
 function osc52End(text: string): { index: number; length: number } | undefined {
