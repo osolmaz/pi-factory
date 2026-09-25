@@ -5,6 +5,10 @@ list on the left and the app's own Pi TUI on the right, in a
 [ghostty-web](https://github.com/coder/ghostty-web) terminal. There is no shell and no settings page:
 the app decides the model, the extensions, and the theme, exactly as in a normal launch.
 
+```bash
+npm install @osolmaz/pi-factory-web
+```
+
 ```ts
 import { runPiWebApp } from "@osolmaz/pi-factory-web";
 

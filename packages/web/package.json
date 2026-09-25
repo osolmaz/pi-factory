@@ -7,10 +7,15 @@
     "pi-factory",
     "pi-coding-agent",
     "web",
-    "terminal"
+    "terminal",
+    "sessions"
   ],
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/osolmaz/pi-factory#readme",
+  "bugs": {
+    "url": "https://github.com/osolmaz/pi-factory/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/osolmaz/pi-factory.git",
@@ -42,6 +47,7 @@
     "dry": "slophammer-ts dry .",
     "mutate": "stryker run",
     "check": "npm run format && npm run lint && npm run typecheck && npm run build && npm test && npm run coverage && npm run dry",
+    "prepublishOnly": "npm run check",
     "prepare": "npm run build"
   },
   "dependencies": {
