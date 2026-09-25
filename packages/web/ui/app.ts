@@ -381,8 +381,11 @@ function wireTerminal(term: GhosttyTerminal, socket: WebSocket): void {
   const send = (data: string): void => {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "input", data }));
   };
+  const clipboard = osc52Reader();
   socket.addEventListener("message", (event) => {
-    term.write(String(event.data));
+    const data = String(event.data);
+    clipboard(data);
+    term.write(data);
   });
   // The server closes the socket when the session's Pi process ends.
   socket.addEventListener("close", () => {
@@ -396,6 +399,53 @@ function wireTerminal(term: GhosttyTerminal, socket: WebSocket): void {
   });
   term.attachCustomKeyEventHandler((event) => encodeModifiedLetter(event, send));
   term.attachCustomWheelEventHandler((event) => encodeWheel(term, event, send));
+}
+
+// Pi copies a fullscreen selection with OSC 52 (ESC ] 52 ; c ; base64 BEL), like the native Ghostty
+// app expects. ghostty-web ignores OSC 52, so the page reads the sequence from the output and writes
+// the clipboard. A sequence can span WebSocket messages, so an unfinished one waits for the rest.
+// The browser allows the clipboard only in a secure context: HTTPS or localhost.
+const osc52Start = "\x1b]52;";
+const maxPendingOsc52 = 4 * 1024 * 1024;
+
+function osc52Reader(): (data: string) => void {
+  let pending = "";
+  return (data) => {
+    let text = pending + data;
+    pending = "";
+    for (;;) {
+      const start = text.indexOf(osc52Start);
+      if (start < 0) return;
+      const rest = text.slice(start);
+      const end = osc52End(rest);
+      if (end === undefined) {
+        pending = rest.length > maxPendingOsc52 ? "" : rest;
+        return;
+      }
+      copyOsc52(rest.slice(osc52Start.length, end.index));
+      text = rest.slice(end.index + end.length);
+    }
+  };
+}
+
+function osc52End(text: string): { index: number; length: number } | undefined {
+  const bell = text.indexOf("\x07");
+  const st = text.indexOf("\x1b\\");
+  if (bell < 0 && st < 0) return undefined;
+  if (st < 0 || (bell >= 0 && bell < st)) return { index: bell, length: 1 };
+  return { index: st, length: 2 };
+}
+
+function copyOsc52(body: string): void {
+  const payload = body.slice(body.indexOf(";") + 1);
+  // "?" asks to read the clipboard, which a page must not answer.
+  if (payload === "?" || !window.isSecureContext) return;
+  try {
+    const bytes = Uint8Array.from(atob(payload), (character) => character.charCodeAt(0));
+    void navigator.clipboard.writeText(new TextDecoder().decode(bytes)).catch(() => undefined);
+  } catch {
+    // Not valid base64: nothing to copy.
+  }
 }
 
 // ghostty-web has no Kitty keyboard protocol yet, so it sends Ctrl+Shift+letter as plain
