@@ -226,6 +226,8 @@ describe("pi-factory web app", () => {
       "catppuccin-macchiato",
       "catppuccin-mocha"
     ]);
+    const favicon = await fetch(`${started.base}/favicon.ico`);
+    expect(favicon.headers.get("content-type")).toBe("image/svg+xml");
     const logo = await fetch(`${started.base}/logo`);
     expect(logo.headers.get("content-type")).toBe("image/svg+xml");
     expect(await logo.text()).toContain("pi.dev/press-kit");
