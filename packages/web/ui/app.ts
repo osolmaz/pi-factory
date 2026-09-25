@@ -41,6 +41,7 @@ let theme: Theme = {};
 let themes: readonly ThemeChoice[] = [];
 let settings: Settings = { theme: "", accent: undefined, fontSize: 14 };
 let fontFamily = "monospace";
+let appTitle = "";
 let sessions: readonly SessionSummary[] = [];
 let attached: Attached | undefined;
 // While a rename box is open, list updates wait, so a re-render does not throw the edit away.
@@ -59,7 +60,8 @@ async function main(): Promise<void> {
   await module.init();
   ghostty = module;
   themes = config.themes;
-  document.title = config.title;
+  appTitle = config.title;
+  updateWindowTitle();
   element("app-title").textContent = config.title;
   applySettings(config.settings);
   setUpSettingsPanel();
@@ -204,7 +206,14 @@ function connectEvents(): void {
   });
 }
 
+// The browser tab shows the selected session's name next to the app name.
+function updateWindowTitle(): void {
+  const session = sessions.find((entry) => entry.key === attached?.key);
+  document.title = session === undefined ? appTitle : `${session.title} · ${appTitle}`;
+}
+
 function renderSessions(): void {
+  updateWindowTitle();
   if (renaming) return;
   const nav = element("sessions");
   nav.replaceChildren();
@@ -451,13 +460,38 @@ function osc52End(text: string): { index: number; length: number } | undefined {
 function copyOsc52(body: string): void {
   const payload = body.slice(body.indexOf(";") + 1);
   // "?" asks to read the clipboard, which a page must not answer.
-  if (payload === "?" || !window.isSecureContext) return;
+  if (payload === "?") return;
+  // Pi shows "Copied" in any case, so say plainly when the browser did not take the text.
+  if (!window.isSecureContext) {
+    showNotice(
+      "Not copied to your clipboard: browsers allow copying only on HTTPS or localhost. " +
+        "Open this page over HTTPS, or on localhost, for example through an SSH tunnel."
+    );
+    return;
+  }
+  let text: string;
   try {
     const bytes = Uint8Array.from(atob(payload), (character) => character.charCodeAt(0));
-    void navigator.clipboard.writeText(new TextDecoder().decode(bytes)).catch(() => undefined);
+    text = new TextDecoder().decode(bytes);
   } catch {
-    // Not valid base64: nothing to copy.
+    return;
   }
+  navigator.clipboard.writeText(text).catch((error: unknown) => {
+    const reason = error instanceof Error ? error.message : String(error);
+    showNotice(`Not copied to your clipboard: the browser refused (${reason}).`);
+  });
+}
+
+let noticeTimer: number | undefined;
+
+function showNotice(text: string): void {
+  const notice = element("notice");
+  notice.textContent = text;
+  notice.hidden = false;
+  window.clearTimeout(noticeTimer);
+  noticeTimer = window.setTimeout(() => {
+    notice.hidden = true;
+  }, 6000);
 }
 
 // ghostty-web has no Kitty keyboard protocol yet, so it sends Ctrl+Shift+letter as plain
@@ -505,6 +539,7 @@ function detach(): void {
   attached = undefined;
   element("terminal").replaceChildren();
   element("empty").hidden = false;
+  updateWindowTitle();
 }
 
 function terminalTheme(): ITheme {

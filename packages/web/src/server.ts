@@ -261,7 +261,8 @@ export function parseStatusUpdate(value: unknown): StatusUpdate {
 
 async function serveAsset(deps: WebServerDeps, response: ServerResponse, url: URL): Promise<void> {
   const path = url.pathname === "/" ? "/index.html" : url.pathname;
-  const file = path === "/logo" ? deps.logo : deps.assets[path];
+  // Browsers ask for /favicon.ico even when the page names an icon, so both paths serve the logo.
+  const file = path === "/logo" || path === "/favicon.ico" ? deps.logo : deps.assets[path];
   if (file === undefined) {
     throw new HttpError(404, "not found");
   }
