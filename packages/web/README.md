@@ -25,8 +25,10 @@ process.exitCode = await runPiWebApp(app, { port: 8421 });
   stay on disk.
 - **Status.** The runner adds a small Pi extension to every session. It reports Pi's public events
   to the server, and the sidebar shows a dot: purple while the agent responds, orange while it waits
-  for the user (for example a tool approval), none while it is idle. The extension writes nothing to
-  the session.
+  for the user (for example a tool approval), none while it is idle. The waiting status needs a Pi
+  release that emits `ui_prompt_start` (Pi 0.87 does); an older Pi shows only responding and idle.
+  The extension writes nothing to the session except a rename that the page asks for, which it
+  applies through `pi.setSessionName`.
 - **Fullscreen TUI.** Pi sends mouse clicks to extensions only in its fullscreen mode, so the runner
   adds `--tui-mode fullscreen` unless the app forwards its own `--tui-mode`.
 

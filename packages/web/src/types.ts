@@ -44,6 +44,8 @@ export type PiWebOptions = {
   readonly cwd?: string;
   /** Page and terminal colors. Default: Catppuccin Latte. */
   readonly theme?: PiWebTheme;
+  /** CSS font list for the terminal. Default: Monaspace Argon, served by the package. */
+  readonly fontFamily?: string;
   /** Called with the page URL once the server listens. */
   readonly onReady?: (url: string) => void;
 };

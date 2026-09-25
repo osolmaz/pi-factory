@@ -164,11 +164,17 @@ describe("pi-factory web app", () => {
     const wasm = await fetch(`${started.base}/ghostty-vt.wasm`);
     expect(wasm.headers.get("content-type")).toBe("application/wasm");
     expect((await fetch(`${started.base}/vendor/ghostty-web.js`)).status).toBe(200);
+    const font = await fetch(`${started.base}/fonts/monaspace-argon-400-italic.woff2`);
+    expect(font.headers.get("content-type")).toBe("font/woff2");
     expect((await fetch(`${started.base}/api/sessions`)).status).toBe(403);
     expect((await fetch(`${started.base}/missing.js`)).status).toBe(404);
     expect(
       await api<{ title: string; theme: { background: string } }>(started, "GET", "/api/config")
-    ).toMatchObject({ title: "Web Test", theme: { background: "#eff1f5" } });
+    ).toMatchObject({
+      title: "Web Test",
+      theme: { background: "#eff1f5" },
+      fontFamily: '"Monaspace Argon", ui-monospace, Menlo, Consolas, monospace'
+    });
   });
 
   it("starts a new session in fullscreen with the status extension and talks to it", async () => {
@@ -348,6 +354,13 @@ describe("pi-factory web app", () => {
     await expect(wrongOrigin.opened()).rejects.toThrow();
     const wrongToken = new Socket(started, `/api/events?token=nope`);
     await expect(wrongToken.opened()).rejects.toThrow();
+    const badPath = new Socket(started, `/api/terminal/%E0%A4%A?token=${started.token}`);
+    await badPath.opened();
+    const closeCode = await new Promise<number>((resolve) => {
+      badPath.ws.once("close", resolve);
+    });
+    expect(closeCode).toBe(4400);
+    expect((await fetch(started.web.url)).status).toBe(200);
 
     expect(await statusWithHost(started, "attacker.example")).toBe(403);
     expect(await statusWithHost(started, "localhost")).toBe(200);

@@ -23,7 +23,7 @@ import {
 } from "./sessions.js";
 import { controlUrlEnv, statusUrlEnv, writeStatusExtension } from "./status-extension.js";
 import { deleteSessionFile, listStoredSessions, renameStoredSession } from "./stored-sessions.js";
-import { catppuccinLatte } from "./theme.js";
+import { catppuccinLatte, defaultFontFamily } from "./theme.js";
 import type { PiWebOptions } from "./types.js";
 
 export type PiWebApp = {
@@ -98,6 +98,7 @@ function wireServer(
     statusToken,
     title: app.name,
     theme: options.theme ?? catppuccinLatte,
+    fontFamily: options.fontFamily ?? defaultFontFamily,
     assets: webAssets(),
     hosts: [...(options.host === undefined ? [] : [options.host]), ...(options.allowedHosts ?? [])]
   });
@@ -186,8 +187,15 @@ function ptySpawner(
 /** The files the page needs: the built UI and the ghostty-web terminal. */
 export function webAssets(): Readonly<Record<string, string>> {
   const uiDir = fileURLToPath(new URL("../ui/", import.meta.url));
-  const ghosttyDir = dirname(createRequire(import.meta.url).resolve("ghostty-web"));
+  const require = createRequire(import.meta.url);
+  const ghosttyDir = dirname(require.resolve("ghostty-web"));
+  const font = (file: string): string =>
+    require.resolve(`@fontsource/monaspace-argon/files/monaspace-argon-latin-${file}.woff2`);
   return {
+    "/fonts/monaspace-argon-400.woff2": font("400-normal"),
+    "/fonts/monaspace-argon-400-italic.woff2": font("400-italic"),
+    "/fonts/monaspace-argon-700.woff2": font("700-normal"),
+    "/fonts/monaspace-argon-700-italic.woff2": font("700-italic"),
     "/index.html": join(uiDir, "index.html"),
     "/app.js": join(uiDir, "app.js"),
     "/style.css": join(uiDir, "style.css"),

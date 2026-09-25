@@ -15,6 +15,7 @@ export type WebServerDeps = {
   readonly statusToken: string;
   readonly title: string;
   readonly theme: PiWebTheme;
+  readonly fontFamily: string;
   /** Maps a public path such as `/app.js` to a file on disk. */
   readonly assets: Readonly<Record<string, string>>;
   /** Host names the server answers to, besides the loopback names. */
@@ -36,7 +37,8 @@ const contentTypes: Readonly<Record<string, string>> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
-  ".wasm": "application/wasm"
+  ".wasm": "application/wasm",
+  ".woff2": "font/woff2"
 };
 
 class HttpError extends Error {
@@ -63,7 +65,12 @@ export function createWebServer(deps: WebServerDeps): WebServer {
       return;
     }
     sockets.handleUpgrade(request, socket, head, (ws) => {
-      acceptSocket(deps, pages, ws, url);
+      try {
+        acceptSocket(deps, pages, ws, url);
+      } catch {
+        // A malformed path, such as a bad percent escape, must not stop the server.
+        ws.close(4400, "bad request");
+      }
     });
   });
   // Lists are computed asynchronously, so an older list can finish after a newer one. Only the
@@ -117,7 +124,7 @@ async function handleApi(
 ): Promise<void> {
   const route = `${request.method ?? "GET"} ${url.pathname}`;
   if (route === "GET /api/config") {
-    sendJson(response, 200, { title: deps.title, theme: deps.theme });
+    sendJson(response, 200, { title: deps.title, theme: deps.theme, fontFamily: deps.fontFamily });
     return;
   }
   if (route === "GET /api/sessions") {

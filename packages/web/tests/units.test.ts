@@ -17,6 +17,12 @@ import {
   renameStoredSession,
   storedSession
 } from "../src/stored-sessions.js";
+import {
+  catppuccinFrappe,
+  catppuccinLatte,
+  catppuccinMacchiato,
+  catppuccinMocha
+} from "../src/theme.js";
 import { runPiWebApp, withWebLaunch } from "../src/web-app.js";
 
 const cleanup: string[] = [];
@@ -264,6 +270,15 @@ describe("stored session titles", () => {
     );
     expect(storedSession({ ...info, firstMessage: "  " }).title).toBe("Untitled session");
     expect(storedSession({ ...info, firstMessage: "hi" }).updatedAt).toBe(5_000);
+  });
+});
+
+describe("themes", () => {
+  it("builds every Catppuccin flavor with light and dark terminal colors", () => {
+    expect(catppuccinLatte).toMatchObject({ background: "#eff1f5", black: "#5c5f77" });
+    expect(catppuccinFrappe).toMatchObject({ background: "#303446", black: "#51576d" });
+    expect(catppuccinMacchiato).toMatchObject({ background: "#24273a", white: "#b8c0e0" });
+    expect(catppuccinMocha).toMatchObject({ background: "#1e1e2e", brightWhite: "#a6adc8" });
   });
 });
 

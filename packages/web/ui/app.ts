@@ -27,14 +27,17 @@ const element = (id: string): HTMLElement => document.getElementById(id) as HTML
 
 let ghostty: GhosttyModule | undefined;
 let theme: Theme = {};
+let fontFamily = "monospace";
 let sessions: readonly SessionSummary[] = [];
 let attached: Attached | undefined;
 
 async function main(): Promise<void> {
   const [module, config] = await Promise.all([
     import(ghosttyPath) as Promise<GhosttyModule>,
-    api<{ title: string; theme: Theme }>("GET", "/api/config")
+    api<{ title: string; theme: Theme; fontFamily: string }>("GET", "/api/config")
   ]);
+  fontFamily = config.fontFamily;
+  await loadFonts(config.fontFamily);
   await module.init();
   ghostty = module;
   theme = config.theme;
@@ -50,6 +53,15 @@ async function main(): Promise<void> {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeMenu();
   });
+}
+
+// The terminal draws on a canvas, which does not wait for web fonts, so load them first. A font
+// that fails to load leaves the rest of the list as the fallback.
+async function loadFonts(family: string): Promise<void> {
+  const loads = ["400", "700", "italic 400", "italic 700"].map((style) =>
+    document.fonts.load(`${style} 14px ${family}`)
+  );
+  await Promise.allSettled(loads);
 }
 
 function applyTheme(colors: Theme): void {
@@ -235,7 +247,7 @@ function attach(key: string): void {
   detach();
   const term = new ghostty.Terminal({
     fontSize: 14,
-    fontFamily: '"JetBrains Mono", "Fira Code", Menlo, Consolas, monospace',
+    fontFamily,
     cursorBlink: true,
     theme: terminalTheme()
   });
