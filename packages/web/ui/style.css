@@ -1,3 +1,35 @@
+@font-face {
+  font-family: "Monaspace Argon";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/monaspace-argon-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Monaspace Argon";
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/monaspace-argon-400-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Monaspace Argon";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("/fonts/monaspace-argon-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Monaspace Argon";
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
+  src: url("/fonts/monaspace-argon-700-italic.woff2") format("woff2");
+}
+
 :root {
   --background: #eff1f5;
   --foreground: #4c4f69;
