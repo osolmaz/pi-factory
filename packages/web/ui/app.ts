@@ -29,6 +29,9 @@ type Attached = {
   readonly term: GhosttyTerminal;
   readonly socket: WebSocket;
   readonly fit: GhosttyFitAddon;
+  // False until the session reports a state other than "starting". A new session is not in the
+  // list yet when it is attached, so it starts as not ready.
+  ready: boolean;
 };
 
 // The module path is served by the web runner; a variable keeps TypeScript from resolving it.
@@ -46,6 +49,8 @@ let sessions: readonly SessionSummary[] = [];
 let attached: Attached | undefined;
 // While a rename box is open, list updates wait, so a re-render does not throw the edit away.
 let renaming = false;
+// The first session list decides whether the page starts a session on its own.
+let firstList = true;
 
 async function main(): Promise<void> {
   const [module, config] = await Promise.all([
@@ -198,12 +203,32 @@ function connectEvents(): void {
     if (message.sessions !== undefined) {
       sessions = message.sessions;
       renderSessions();
+      startFirstSession();
     }
     if (message.settings !== undefined) applySettings(message.settings);
   });
   socket.addEventListener("close", () => {
     window.setTimeout(connectEvents, 1000);
   });
+}
+
+// On a first run there is nothing to pick, so the page starts a session instead of an empty view.
+// Only the first list of this page load counts, so a reconnect or a deleted last session does not
+// start one.
+function startFirstSession(): void {
+  if (!firstList) return;
+  firstList = false;
+  if (sessions.length === 0 && attached === undefined) void openSession(undefined);
+}
+
+// While the attached session's Pi starts, the terminal is blank, so the page shows that it loads.
+function renderLoading(): void {
+  if (attached !== undefined && !attached.ready) {
+    const status = sessions.find((entry) => entry.key === attached?.key)?.status;
+    attached.ready = status !== undefined && status !== "starting" && status !== "exited";
+  }
+  element("loading-title").textContent = `Starting ${appTitle}…`;
+  element("loading").hidden = attached === undefined || attached.ready;
 }
 
 // The browser tab shows the selected session's name next to the app name.
@@ -214,6 +239,7 @@ function updateWindowTitle(): void {
 
 function renderSessions(): void {
   updateWindowTitle();
+  renderLoading();
   if (renaming) return;
   const nav = element("sessions");
   nav.replaceChildren();
@@ -379,7 +405,7 @@ function attach(key: string): void {
   const socket = new WebSocket(
     socketUrl(`/api/terminal/${encodeURIComponent(key)}`, { cols: term.cols, rows: term.rows })
   );
-  attached = { key, term, socket, fit };
+  attached = { key, term, socket, fit, ready: false };
   wireTerminal(term, socket);
   element("empty").hidden = true;
   renderSessions();
@@ -398,7 +424,10 @@ function wireTerminal(term: GhosttyTerminal, socket: WebSocket): void {
   });
   // The server closes the socket when the session's Pi process ends.
   socket.addEventListener("close", () => {
-    if (attached?.socket === socket) detach();
+    if (attached?.socket !== socket) return;
+    const starting = !attached.ready;
+    detach();
+    if (starting) showNotice(`${appTitle} stopped before it was ready.`);
   });
   term.onData(send);
   term.onResize(({ cols, rows }) => {
@@ -539,6 +568,7 @@ function detach(): void {
   attached = undefined;
   element("terminal").replaceChildren();
   element("empty").hidden = false;
+  renderLoading();
   updateWindowTitle();
 }
 

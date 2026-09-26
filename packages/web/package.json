@@ -1,6 +1,6 @@
 {
   "name": "@osolmaz/pi-factory-web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Run a pi-factory app in the browser: a session list and the app's Pi TUI in a web terminal.",
   "keywords": [
     "pi",
