@@ -401,7 +401,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .spinner,
-  .dot {
+  .dot.starting,
+  .dot.responding {
     animation-duration: 3s;
   }
 }

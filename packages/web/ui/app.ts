@@ -34,6 +34,8 @@ type Attached = {
   ready: boolean;
 };
 
+// How long the loading view waits for a session to report that it is ready.
+const loadingTimeoutMs = 120_000;
 // The module path is served by the web runner; a variable keeps TypeScript from resolving it.
 const ghosttyPath = "/vendor/ghostty-web.js";
 const token = new URLSearchParams(location.search).get("token") ?? "";
@@ -405,7 +407,15 @@ function attach(key: string): void {
   const socket = new WebSocket(
     socketUrl(`/api/terminal/${encodeURIComponent(key)}`, { cols: term.cols, rows: term.rows })
   );
-  attached = { key, term, socket, fit, ready: false };
+  const current: Attached = { key, term, socket, fit, ready: false };
+  attached = current;
+  // If the session never reports that it is ready, for example because its status extension
+  // failed, the terminal must not stay hidden, so the loading view gives up after a while.
+  window.setTimeout(() => {
+    if (attached !== current || current.ready) return;
+    current.ready = true;
+    renderLoading();
+  }, loadingTimeoutMs);
   wireTerminal(term, socket);
   element("empty").hidden = true;
   renderSessions();
